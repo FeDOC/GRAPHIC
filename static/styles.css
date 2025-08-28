@@ -1,0 +1,54 @@
+/* .container {
+  display: flex;
+  justify-content: space-between;
+  padding: 20px;
+}
+.form-container {
+  width: 30%;
+  padding-right: 20px;
+}
+.table-container {
+  width: 70%;
+  padding-left: 20px;
+  overflow-x: auto;
+} */
+table {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+th {
+  background-color: #f2f2f2;
+  padding: 3px;
+  text-align: center;
+  border: 1px solid black;
+  font-weight: bold;
+  min-width: 25px;  /* Set a minimum width for header columns */
+  font-size: 16px;
+}
+td {
+  padding: 2px;
+  text-align: center; /* Center content in the data cells */
+  border: 1px solid black;
+  word-wrap: break-word;
+  min-width: 25px;  /* Set a minimum width for data columns */
+  max-width: 100px;
+}
+.weekend {
+  background-color: #ffcccc; /* Light red background for weekends */
+}
+th:first-child, td:first-child {
+  max-width: 30px;
+  text-align: center;
+  font-size: 16px;
+}
+input[type="text"] {
+  width: 80%;  /* Adjust width to make it tighter */
+  padding: 3px; /* Reduce padding for a more compact look */
+  font-size: 12px; /* Make the text smaller */
+  text-align: center; /* Center the text inside the input */
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}

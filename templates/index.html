@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Table</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <h1>Monthly Table</h1>
+            
+            <!-- Form to select year and month -->
+            <form method="POST">
+                <label for="year">Year:</label>
+                <input type="number" id="year" name="year" value="{{ year if year else '' }}" required>
+                
+                <label for="month">Month:</label>
+                <input type="number" id="month" name="month" min="1" max="12" value="{{ month if month else '' }}" required>
+                
+                <button type="submit" name="generate_table">Generate Table</button>
+            </form>
+        </div>
+        <div class="table-container">
+            {% if days_in_month > 0 %}
+                <p>Number of days: {{ days_in_month }}</p>
+
+                <!-- Form to enter names into the table -->
+                <form method="POST">
+                    <input type="hidden" name="save_names" value="1">  <!-- Hidden input to differentiate submissions -->
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>OTVET</th>
+                                <th>DIAGNOS</th>
+                                <th>EXTR</th>
+                                <th>PLAN</th>
+                                <th>GREEN</th>
+                                <th>YELLOW</th>
+                                <th>TORAC</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in table_rows %}
+                                <tr class="{% if row.is_weekend %}weekend{% endif %}">
+                                    <td>{{ row.day }}</td>
+                                    
+                                    <!-- Loop through each column (except first) to allow input -->
+                                    {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
+                                    <td class="editable" data-name="name_{{ column }}_{{ row.day }}">
+                                        {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <button type="submit">Save Names</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>  
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
