@@ -1,33 +1,82 @@
+// Get people list from HTML
+const people = JSON.parse(document.getElementById('people-data').dataset.people);
+
+// Global suggestions container
+const suggestionBox = document.createElement("div");
+suggestionBox.classList.add("autocomplete-suggestions");
+document.body.appendChild(suggestionBox);
+
 document.addEventListener("DOMContentLoaded", function () {
-  // Select all editable cells
-  document.querySelectorAll(".editable").forEach(cell => {
-      cell.addEventListener("click", function () {
-          // If the cell is empty, add an input field
-          if (!this.querySelector("input")) {
-            let input = document.createElement("input");
-            input.type = "text";
-            input.value = this.textContent.trim(); // Set the initial value as empty
-            input.dataset.name = this.dataset.name; // Store the 'name' attribute value
+    // Select all editable cells
+    document.querySelectorAll(".editable").forEach(cell => {
+        cell.addEventListener("click", function () {
+            // If the cell is empty, add an input field
+            if (!this.querySelector("input")) {
+                const td = this;
+                let input = document.createElement("input");
+                input.type = "text";
+                input.value = td.textContent.trim(); 
+                input.dataset.name = td.dataset.name; 
+                
+                td.innerHTML = "";
+                td.appendChild(input);
+                input.focus();
+                
+                input.addEventListener("input", function () {
+                    const value = this.value.toLowerCase();
+                    suggestionBox.innerHTML = "";
 
-            this.innerHTML = ""; // Clear the cell content
-            this.appendChild(input); // Insert the input inside the cell
+                    if (!value) {
+                        suggestionBox.style.display = "none";
+                        return;
+                    }
 
-            input.focus(); // Focus on the input field so the user can start typing
+                    const matches = people.filter(name => name.toLowerCase().includes(value));
+                    matches.forEach(match => {
+                        let option = document.createElement("div");
+                        option.classList.add("autocomplete-option");
+                        option.textContent = match;
 
-            // When the input loses focus (blur event),or Enter pressed save the entered value
-            
-            input.addEventListener("blur", saveInput);
-            input.addEventListener("keypress", function (event) {
-              if (event.key == "Enter") {
-                saveInput()
-              }
-            });
+                        option.addEventListener("mousedown", function () {
+                            input.value = match;
+                            td.innerHTML = match;  // Save to table cell (td)
+                            suggestionBox.style.display = "none";
+                        });
 
-            function saveInput () {
-              let newValue = input.value.trim();
-              input.parentElement.innerHTML = newValue; // Replace input with new value
+                        suggestionBox.appendChild(option);
+                    });
+
+                    const rect = input.getBoundingClientRect();
+                    suggestionBox.style.top = rect.bottom + window.scrollY + "px";
+                    suggestionBox.style.left = rect.left + window.scrollX + "px";
+                    suggestionBox.style.width = rect.width + "px";
+                    suggestionBox.style.display = "block";
+                
+                });
+
+                function saveInput() {
+                    td.innerHTML = input.value.trim();
+                    suggestionBox.style.display = "none";
+                }
+
+                input.addEventListener("blur", function () {
+                    setTimeout(saveInput, 100);
+                });
+
+                input.addEventListener("keypress", function (event) {
+                    if (event.key === "Enter") saveInput();
+                });
             }
-          }
-      });
-  });
+        });
+    });
 });
+
+document.getElementById('save-form')?.addEventListener('submit', function() {
+    document.querySelectorAll('.editable').forEach(td => {
+        const hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = td.dataset.name;       // e.g., "name_OTVET_1"
+        hidden.value = td.textContent.trim();
+        this.appendChild(hidden);
+    });
+})

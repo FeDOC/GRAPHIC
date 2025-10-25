@@ -12,6 +12,7 @@
   padding-left: 20px;
   overflow-x: auto;
 } */
+
 table {
   width: 100%;
   max-width: 1000px;
@@ -19,15 +20,17 @@ table {
   border-collapse: collapse;
   font-size: 14px;
 }
+
 th {
   background-color: #f2f2f2;
-  padding: 3px;
+  padding: 5px;
   text-align: center;
   border: 1px solid black;
   font-weight: bold;
   min-width: 25px;  /* Set a minimum width for header columns */
   font-size: 16px;
 }
+
 td {
   padding: 2px;
   text-align: center; /* Center content in the data cells */
@@ -36,19 +39,42 @@ td {
   min-width: 25px;  /* Set a minimum width for data columns */
   max-width: 100px;
 }
+
 .weekend {
   background-color: #ffcccc; /* Light red background for weekends */
 }
+
 th:first-child, td:first-child {
   max-width: 30px;
   text-align: center;
   font-size: 16px;
 }
+
 input[type="text"] {
-  width: 80%;  /* Adjust width to make it tighter */
+  width: 70%;  /* Adjust width to make it tighter */
   padding: 3px; /* Reduce padding for a more compact look */
   font-size: 12px; /* Make the text smaller */
   text-align: center; /* Center the text inside the input */
   border: 1px solid #ccc;
-  border-radius: 5px;
+  border-radius: 8px;
+}
+
+.autocomplete-suggestions {
+    position: absolute;   /* floating */
+    display: none;        /* hidden initially */
+    border: 1px solid #ccc;
+    background: #fff;
+    max-height: 200px;
+    overflow-y: auto;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    z-index: 1000;
+}
+
+.autocomplete-option {
+    padding: 5px;
+    cursor: pointer;
+}
+
+.autocomplete-option:hover {
+    background-color: #f0f0f0;
 }

@@ -1,19 +1,22 @@
-from flask import Flask, render_template, request, session
+from flask import Flask, render_template, request, session, redirect, url_for
 import calendar
 from datetime import datetime
+
+people = ["Alice", "Bob", "Charlie", "David", "Eva", "Frank"]
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Required for session handling
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    year = session.get('year')  # Retrieve stored year (if any)
-    month = session.get('month')  # Retrieve stored month (if any)
+    # Retrieve stored year and month (or None)
+    year = session.get('year', None) 
+    month = session.get('month', None)
     days_in_month = session.get('days_in_month', 0)  # Retrieve stored days (default 0)
     table_rows = session.get('table_rows', [])
 
     if 'generate_table' in request.form:
-        # User entered a new year and month
+        # User enter year and month 
         year = int(request.form['year'])
         month = int(request.form['month'])
         days_in_month = calendar.monthrange(year, month)[1]
@@ -29,16 +32,16 @@ def index():
         session['month'] = month
         session['days_in_month'] = days_in_month
         session['table_rows'] = table_rows
-
+        print(request.form)
     elif 'save_names' in request.form:
         # User submitted names, update table_rows with new values
         table_rows = session.get('table_rows', [])  # Load table from session
         
         for row in table_rows:
-            for column_name, name in request.form.items():
-                if column_name.startswith('name_') and column_name.endswith(f'_{row["day"]}'):
-                    row[column_name] = name  # Save entered name into the correct row
-
+            for name, text in request.form.items():
+                if name.startswith('name_') and name.endswith(f'_{row['day']}'):
+                    row[name] = text  # Save entered text into the correct row with key name_ZONE_day
+        print(table_rows)
         # Store updated table in session
         session['table_rows'] = table_rows
 
@@ -47,8 +50,15 @@ def index():
         year=year,
         month=month,
         days_in_month=days_in_month,
-        table_rows=table_rows
+        table_rows=table_rows,
+        people=people
     )
+
+# Completely resets page
+@app.route('/reset', methods=['POST'])
+def reset():
+    session.clear()  # Clear all session data
+    return redirect(url_for('index'))  #
 
 if __name__ == '__main__':
     app.run(debug=True)

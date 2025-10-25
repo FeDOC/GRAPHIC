@@ -7,11 +7,12 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
+    
     <div class="container">
         <div class="form-container">
             <h1>Monthly Table</h1>
             
-            <!-- Form to select year and month -->
+            <!-- Form to enter year and month -->
             <form method="POST">
                 <label for="year">Year:</label>
                 <input type="number" id="year" name="year" value="{{ year if year else '' }}" required>
@@ -21,15 +22,22 @@
                 
                 <button type="submit" name="generate_table">Generate Table</button>
             </form>
+
+            <!-- Reset button -->
+            <button id="new-graph">New Graph</button>
+            <script>
+                document.getElementById('new-graph').addEventListener('click', function() {
+                    fetch('{{ url_for("reset") }}', { method: 'POST' })
+                        .then(() => location.href = '/'); // reload page after clearing session
+                });
+            </script>
         </div>
+
         <div class="table-container">
             {% if days_in_month > 0 %}
                 <p>Number of days: {{ days_in_month }}</p>
 
-                <!-- Form to enter names into the table -->
-                <form method="POST">
-                    <input type="hidden" name="save_names" value="1">  <!-- Hidden input to differentiate submissions -->
-                    
+                <!-- Form to enter names into the table -->                   
                     <table>
                         <thead>
                             <tr>
@@ -58,12 +66,14 @@
                             {% endfor %}
                         </tbody>
                     </table>
-
-                    <button type="submit">Save Names</button>
+                <form method="POST" id="save-form">
+                    <button name='save_names' type="submit">Save Names</button>
                 </form>
             {% endif %}
         </div>
     </div>  
+    <div id="people-data" data-people='{{ people | tojson }}'></div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
+
