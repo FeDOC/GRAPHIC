@@ -78,3 +78,62 @@ input[type="text"] {
 .autocomplete-option:hover {
     background-color: #f0f0f0;
 }
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+}
+
+/* Account  */
+.tabs {
+    display: flex;
+    margin-bottom: 20px;
+}
+
+.tab {
+    margin-right: 20px;
+    cursor: pointer;
+    padding: 10px;
+    border-bottom: 2px solid transparent;
+}
+
+.tab.active {
+    border-bottom: 2px solid #007bff;
+    font-weight: bold;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* People table styling */
+
+#people-table {
+    margin-top: 10px;
+    border-collapse: collapse;
+    width: 100%;
+    table-layout: auto;
+    border: none;
+}
+
+#people-table th,
+#people-table td {
+    border: 1px solid #ccc;
+    padding: 3px;
+    text-align: center;
+}
+
+#people-table th {
+    background-color: #f2f2f2;
+}
+ 
+#people-table td:first-child,
+#people-table th:first-child {
+    width: auto;
+    border: none;
+    background: transparent;
+} 

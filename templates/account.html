@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Account</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body id="account-page">
+    <h2>Welcome, {{ username }}!</h2>
+    <a href="{{ url_for('logout') }}">Logout</a>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="people">People</div>
+        <div class="tab" data-tab="months">Months</div>
+    </div>
+
+    <!-- People tab -->
+    <div id="people" class="tab-content active"> 
+        <h3>Your People</h3>
+        <button id="add-person-btn">+ Add Person</button>
+
+        <table id="people-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Name</th>
+                    <th>Exception Dates</th>
+                    <th>Shifts Number</th>
+                    <th>Place</th>
+                </tr>
+            </thead>
+            <tbody> 
+            </tbody>
+        </table>
+
+    </div>
+    <!-- Month tab -->
+    <div id="months" class="tab-content">
+        <h3>Months</h3>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

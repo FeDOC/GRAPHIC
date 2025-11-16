@@ -1,14 +1,58 @@
-from flask import Flask, render_template, request, session, redirect, url_for
+from flask import Flask, render_template, request, session, redirect, url_for, flash
 import calendar
+import psycopg2
 from datetime import datetime
+from config import Config
 
 people = ["Alice", "Bob", "Charlie", "David", "Eva", "Frank"]
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Required for session handling
+app.config.from_object(Config)
+
+def db_connect():
+    conn = psycopg2.connect(
+        host = app.config['DB_HOST'],
+        port = app.config['DB_PORT'],
+        user = app.config['DB_USER'],
+        password = app.config['DB_PASSWORD'],
+        dbname = app.config['DB_NAME']
+    )
+    return conn
 
 @app.route('/', methods=['GET', 'POST'])
-def index():
+def login():
+    if request.method == "POST":
+        username = request.form["username"].strip().lower()
+        password = request.form["password"].strip()
+
+        conn = db_connect()
+        cur = conn.cursor()
+        cur.execute("SELECT password FROM users WHERE username = %s", (username,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if row and row[0] == password:
+            session["user"] = username
+            return redirect(url_for("account"))
+        else:
+            flash("Invalid username or password", "error")
+
+    return render_template("login.html") 
+
+@app.route("/account")
+def account():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    return render_template("account.html", username=session["user"])
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.route('/create', methods=['GET', 'POST'])
+def create():
     # Retrieve stored year and month (or None)
     year = session.get('year', None) 
     month = session.get('month', None)
