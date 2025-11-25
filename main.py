@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, session, redirect, url_for, flash
 import calendar
-import psycopg2
+import sqlite3
 from datetime import datetime
 from config import Config
 
@@ -9,15 +9,97 @@ people = ["Alice", "Bob", "Charlie", "David", "Eva", "Frank"]
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# ---------------------------------------------------------
+# SQLite DATABASE
+# ---------------------------------------------------------
+
 def db_connect():
-    conn = psycopg2.connect(
-        host = app.config['DB_HOST'],
-        port = app.config['DB_PORT'],
-        user = app.config['DB_USER'],
-        password = app.config['DB_PASSWORD'],
-        dbname = app.config['DB_NAME']
-    )
+    conn = sqlite3.connect("database.db", check_same_thread=False)
+    conn.row_factory = sqlite3.Row  # Dict-like rows
     return conn
+
+# Create SQL table (workers) for workers
+def create_workers_table():
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS workers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            exceptions TEXT,
+            shifts INTEGER NOT NULL,
+            places TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    cur.close()
+    conn.close()
+create_workers_table()
+    
+# Create SQL table (users) for users to login
+def create_users_table():
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    cur.close()
+    conn.close()
+create_users_table()
+
+# ---------------------------------------------------------
+# DATABASE ACTIONS
+# ---------------------------------------------------------
+
+# Add worker in SQL(workers)
+def add_worker(user, name, role, exceptions, shifts, places):
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO workers (username, name, role, exceptions, shifts, places)
+        VALUES (?, ?, ?, ?, ?, ?)""", 
+        (user, name, role, exceptions, shifts, places))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+# Get all workers from SQL(workers)
+def get_workers(user):
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, username, name, role, exceptions, shifts, places
+        FROM workers
+        WHERE username = ?
+        ORDER BY id""", 
+        (user,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
+
+# Delete worker by id in SQL workers table
+def delete_person(pid):
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute('''
+        DELETE FROM workers 
+        WHERE id = ?''', 
+        (pid,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+# --------------------------------------------------
+# ROUTES
+# --------------------------------------------------
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -27,7 +109,10 @@ def login():
 
         conn = db_connect()
         cur = conn.cursor()
-        cur.execute("SELECT password FROM users WHERE username = %s", (username,))
+        cur.execute('''SELECT password 
+                        FROM users 
+                        WHERE username = ?''', 
+                    (username,))
         row = cur.fetchone()
         cur.close()
         conn.close()
@@ -40,11 +125,33 @@ def login():
 
     return render_template("login.html") 
 
-@app.route("/account")
+@app.route("/account", methods=['GET', 'POST'])
 def account():
     if "user" not in session:
         return redirect(url_for("login"))
-    return render_template("account.html", username=session["user"])
+    
+    # Get all workers from SQL(workers) of current user to dict 
+    rows = get_workers(session["user"])
+    workers = [dict(row) for row in rows]
+
+    # Check    
+    print(workers)
+    
+    if request.method == 'POST':
+        data = request.get_json() 
+        if not data:
+            return {"success": False, "message": "No data provided"}, 400
+
+        name = data.get("name")
+        role = data.get("role")
+        exceptions = data.get("exceptions")
+        shifts = data.get("shifts")
+        places = data.get("places")
+
+        add_worker(session["user"], name, role, ','.join(exceptions), shifts, ','.join(places))
+        return {"success": True}
+
+    return render_template("account.html", username=session["user"], workers=workers)
 
 @app.route('/logout')
 def logout():
@@ -76,7 +183,7 @@ def create():
         session['month'] = month
         session['days_in_month'] = days_in_month
         session['table_rows'] = table_rows
-        print(request.form)
+
     elif 'save_names' in request.form:
         # User submitted names, update table_rows with new values
         table_rows = session.get('table_rows', [])  # Load table from session
@@ -103,6 +210,10 @@ def create():
 def reset():
     session.clear()  # Clear all session data
     return redirect(url_for('index'))  #
+
+# ---------------------------------------------------------
+# RUN
+# ---------------------------------------------------------
 
 if __name__ == '__main__':
     app.run(debug=True)

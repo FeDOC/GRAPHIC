@@ -113,6 +113,7 @@ if (page === 'account-page') {
 
         // Action buttons
         const actionTd = document.createElement('td');
+        actionTd.style.width = '7%'
         const applyBtn = document.createElement('button');
         applyBtn.textContent = 'Apply'
         applyBtn.classList.add('action-btn', 'apply')
@@ -130,16 +131,48 @@ if (page === 'account-page') {
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
         nameInput.placeholder = 'Name';
-        nameInput.required = true;
         nameTd.appendChild(nameInput);
         row.appendChild(nameTd);
 
-        // Exception dates (list)
+        // Role input
+        const roleTd = document.createElement('td');
+        const container_radio = document.createElement('div');
+        container_radio.style.display = "flex";
+        container_radio.style.gap = "10px";
+        container_radio.style.alignItems = 'center';
+        container_radio.style.justifyContent = 'center';
+        const roleName = `role-${Date.now()}`;
+        ['Day', 'Shifter'].forEach(role => {
+            const item = document.createElement('div');
+            item.style.display = 'flex';
+            item.style.flexDirection = "column";
+            item.style.alignItems = "center";
+
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.value = role;
+            radio.name = roleName;
+            radio.id = `rad-${role}-${Date.now()}`;
+
+            const label = document.createElement('label');
+            label.htmlFor = radio.id;
+            label.textContent = role;
+
+            item.appendChild(radio);
+            item.appendChild(label);
+
+            container_radio.appendChild(item)
+        });
+        roleTd.appendChild(container_radio);
+        row.appendChild(roleTd);
+        
+
+        // Exception dates
         const exceptionTd = document.createElement('td');
+        exceptionTd.style.width = '13%'
         const exceptionInput = document.createElement('input');
         exceptionInput.type = 'text';
         exceptionInput.placeholder = 'Day, day, ...';
-        exceptionInput.required = true;
         exceptionTd.appendChild(exceptionInput);
         row.appendChild(exceptionTd);
 
@@ -150,7 +183,6 @@ if (page === 'account-page') {
         shiftsInput.type = 'number';
         shiftsInput.min = 0;
         shiftsInput.value = 0;
-        shiftsInput.required = true;
         shiftsInput.style.width = '50%';
         shiftsInput.style.boxSizing = 'border-box';
         shiftsTd.appendChild(shiftsInput);
@@ -159,12 +191,12 @@ if (page === 'account-page') {
         // Place (multi-select)
         const placeTd = document.createElement('td');
         placeTd.style.width = '40%';
-        const container = document.createElement('div'); // Container for checkboxes
-        container.style.display = "flex";
-        container.style.gap = "10px";
-        container.style.alignItems = 'center';
-        container.style.justifyContent = 'center';
-        ['OTV','DIAGN','EXTR','PLAN','GREEN','YELLOW', 'TORAC'].forEach(letter => {
+        const container_checkbox = document.createElement('div'); // Container for checkboxes
+        container_checkbox.style.display = "flex";
+        container_checkbox.style.gap = "10px";
+        container_checkbox.style.alignItems = 'center';
+        container_checkbox.style.justifyContent = 'center';
+        ['OTV','DIAGN','EXTR','PLAN','GREEN','YELLOW', 'TORAC'].forEach(zone => {
             const item = document.createElement('div');
             item.style.display = 'flex';
             item.style.flexDirection = "column";
@@ -172,19 +204,20 @@ if (page === 'account-page') {
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
-            checkbox.value = letter;
-            checkbox.id = `chk-${letter}`;
+            checkbox.value = zone;
+            checkbox.id = `chk-${zone}`;
 
             const label = document.createElement('label');
             label.htmlFor = checkbox.id;
-            label.textContent = letter;
+            label.textContent = zone;
 
             item.appendChild(checkbox);
             item.appendChild(label);
 
-            container.appendChild(item);
+            container_checkbox.appendChild(item);
         }); // Containers with checkbox for each ZONE 
-        placeTd.appendChild(container);
+
+        placeTd.appendChild(container_checkbox);
         row.appendChild(placeTd);
 
         // Append row to table
@@ -194,9 +227,10 @@ if (page === 'account-page') {
         // Apply button -> freeze row
         applyBtn.addEventListener('click', () => {
             const name = nameInput.value.trim();
-            const exception = exceptionInput.value.trim();
+            const role = container_radio.querySelector('input:checked')?.value || null;
+            const exceptions = exceptionInput.value.split(',').map(x => x.trim())
             const shifts = shiftsInput.value;
-            const places = Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
+            const places = Array.from(container_checkbox.querySelectorAll('input[type="checkbox"]:checked'))
                                 .map(checkbox => checkbox.value);
 
             if (places.length === 0) {
@@ -204,19 +238,24 @@ if (page === 'account-page') {
             return;
             }
 
-            if (!name || !exception || !shifts) {
+            if (!name || !role || !shifts) {
                 alert("Please fill all required fields to fill person in table.");
                 return;
             }
 
-            console.log({ name, exception, shifts, places });
-
             nameTd.textContent = name;
-            exceptionTd.textContent = exception;
+            roleTd.textContent = role;
+            exceptionTd.textContent = exceptions.join(', ');
             shiftsTd.textContent = shifts;
             placeTd.textContent = places.join(', ');
 
             applyBtn.remove();
+
+            fetch('/account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, role, exceptions, shifts, places })
+            });
         });
 
         // Delete button → remove row

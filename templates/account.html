@@ -15,8 +15,8 @@
     </div>
 
     <!-- People tab -->
-    <div id="people" class="tab-content active"> 
-        <h3>Your People</h3>
+    <div id="workers" class="tab-content active"> 
+        <h3>Your Workers</h3>
         <button id="add-person-btn">+ Add Person</button>
 
         <table id="people-table">
@@ -24,12 +24,23 @@
                 <tr>
                     <th></th>
                     <th>Name</th>
+                    <th>Work Role</th>
                     <th>Exception Dates</th>
                     <th>Shifts Number</th>
-                    <th>Place</th>
+                    <th>Zone</th>
                 </tr>
             </thead>
             <tbody> 
+                {% for w in workers %}
+                <tr>
+                    <td></td>
+                    <td>{{ w.name }}</td>
+                    <td>{{ w.role }}</td>
+                    <td>{{ w.exception }}</td>
+                    <td>{{ w.shifts }}</td>
+                    <td>{{ w.places|join(', ') }}</td>
+                </tr>
+                {% endfor %}
             </tbody>
         </table>
 
