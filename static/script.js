@@ -1,6 +1,9 @@
 const page = document.body.id //get body id (to run js parts for specific page)
 
+// ----------------------------
 // INDEX PAGE 
+// ----------------------------
+
 if (page === 'index-page') {
 
     // Get people list from HTML
@@ -88,8 +91,19 @@ if (page === 'index-page') {
     });
 }
 
+// ----------------------------
 // ACCOUNT PAGE 
+// ----------------------------
+
 if (page === 'account-page') {
+    
+    // ---------------------------- 
+    // PAGE HAS TABS:
+    // 1. WORKERS (Has table with workers name, role and place. Can add, edit and delete workers)
+    // 2. MONTHS (has table with workers name, role, number of shifts in month, 
+    // exception dates and place) 
+    // ----------------------------
+
     // Interactive tabs 
     const tabs = document.querySelectorAll('.tab');
     const contents = document.querySelectorAll('.tab-content');
@@ -103,10 +117,13 @@ if (page === 'account-page') {
         });
     });
 
-    // Add person logic
+    // ----------------------------
+    // ADD WORKER TO TABLE
+    // ----------------------------
     const addBtn = document.getElementById('add-person-btn');
     const tableBody = document.querySelector('#people-table tbody');
 
+    // Add worker button
     addBtn.addEventListener('click', () => {
         // Create new row
         const row = document.createElement('tr');
@@ -153,6 +170,15 @@ if (page === 'account-page') {
             radio.value = role;
             radio.name = roleName;
             radio.id = `rad-${role}-${Date.now()}`;
+
+            // For shifter make 8 as number of shifts 
+            radio.addEventListener('change', () => {
+                if (radio.value === 'Shifter') {
+                    shiftsInput.value = 8;
+                } else {
+                    shiftsInput.value = 0; // 
+                }
+            });
 
             const label = document.createElement('label');
             label.htmlFor = radio.id;
@@ -223,8 +249,7 @@ if (page === 'account-page') {
         // Append row to table
         tableBody.appendChild(row);
 
-
-        // Apply button -> freeze row
+        // Apply button -> freeze row -> send info to SQL workers
         applyBtn.addEventListener('click', () => {
             const name = nameInput.value.trim();
             const role = container_radio.querySelector('input:checked')?.value || null;
@@ -234,12 +259,12 @@ if (page === 'account-page') {
                                 .map(checkbox => checkbox.value);
 
             if (places.length === 0) {
-            alert("Please select at least one place.");
-            return;
+                alert("Please select at least one place");
+                return;
             }
 
             if (!name || !role || !shifts) {
-                alert("Please fill all required fields to fill person in table.");
+                alert("Please fill all required fields to fill person in table");
                 return;
             }
 
@@ -250,6 +275,8 @@ if (page === 'account-page') {
             placeTd.textContent = places.join(', ');
 
             applyBtn.remove();
+            deleteBtn.remove();
+            EditableCells(row);
 
             fetch('/account', {
                 method: 'POST',
@@ -263,4 +290,187 @@ if (page === 'account-page') {
             row.remove();
         });
     });
+
+    // Make table cells editable
+    function EditableCells(row) {
+        const cells = row.querySelectorAll('td'); // choose all td in row
+        
+        const actionCell = cells[0];
+
+        let editBtn = actionCell.querySelector('button.edit');
+        if (!editBtn) {
+        editBtn = document.createElement('button');
+        editBtn.textContent = 'Edit';
+        editBtn.classList.add('action-btn', 'edit');
+        actionCell.appendChild(editBtn);
+        }
+
+        let deleteBtn = actionCell.querySelector('button.delete');
+        if (!deleteBtn) {
+            deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.classList.add('action-btn', 'delete');
+            actionCell.appendChild(deleteBtn);
+        }
+
+        // Edit button logic
+        editBtn.addEventListener('click', () => {
+            if (editBtn.textContent === 'Edit') {
+                enterEditMode(row, editBtn, deleteBtn);
+            } else if (editBtn.textContent === 'Apply') {
+                applyRowChanges(row, editBtn, deleteBtn);
+            }
+        });
+
+        // Delete button logic
+        deleteBtn.addEventListener('click', () => {
+            const name = cells[1].textContent; // assume name is unique identifier
+            if (!confirm(`Are you sure you want to delete ${name}?`)) return;
+
+            // Send delete request to sql workers
+            fetch('/account/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    row.remove();
+                } else {
+                    alert("Failed to delete row: " + data.error)
+                }
+            });
+        });
+
+        
+    }
+
+    // Edit cells in row 
+    function enterEditMode(row, editBtn, deleteBtn) {
+        const cells = row.querySelectorAll('td');
+
+        // Action cell
+        cells[0].style.width = '7%'
+        editBtn.textContent = 'Apply';
+        // Remove delete button when edit
+        deleteBtn.style.display = 'none';
+
+        // Name cell
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = cells[1].textContent;
+        cells[1].textContent = '';
+        cells[1].appendChild(nameInput);
+
+        // Role cell
+        const roleContainer = document.createElement('div');
+        roleContainer.style.display = 'flex';
+        roleContainer.style.gap = '10px';
+        roleContainer.style.alignItems = 'center';
+        roleContainer.style.justifyContent = 'center';
+        const roleName = `role-edit-${Date.now()}`;
+        ['Day', 'Shifter'].forEach(role => {
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = roleName;
+            radio.value = role;
+            radio.checked = cells[2].textContent === role;
+            const label = document.createElement('label');
+            label.textContent = role;
+            const wrapper = document.createElement('div');
+            wrapper.style.textAlign = 'center';
+            wrapper.appendChild(radio);
+            wrapper.appendChild(label);
+            roleContainer.appendChild(wrapper);
+
+            radio.addEventListener('change', () => {
+                // auto update number of shifts
+                const shiftsInput = cells[4].querySelector('input');
+                if (role === 'Shifter') {
+                    shiftsInput.value = 8;
+                } else {
+                    shiftsInput.value = 0;
+                };
+            });
+        });
+        cells[2].textContent = '';
+        cells[2].appendChild(roleContainer);
+
+        // Exceptions cell 
+        const excInput = document.createElement('input');
+        excInput.type = 'text';
+        excInput.value = cells[3].textContent;
+        cells[3].textContent = '';
+        cells[3].style.width = '13%'
+        cells[3].appendChild(excInput);
+
+        // Number of shifts cell
+        const shiftsInput = document.createElement('input');
+        shiftsInput.type = 'number';
+        shiftsInput.min = 0;
+        shiftsInput.style.width = '50%';
+        shiftsInput.value = parseInt(cells[4].textContent) || 0;
+        cells[4].style.width = '8%';
+        cells[4].textContent = '';
+        cells[4].appendChild(shiftsInput);
+
+        // Places
+        const placeContainer = document.createElement('div');
+        placeContainer.style.display = 'flex';
+        placeContainer.style.gap = '10px';
+        const originalPlaces = cells[5].textContent.split(',').map(x => x.trim());
+        ['OTV','DIAGN','EXTR','PLAN','GREEN','YELLOW','TORAC'].forEach(zone => {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = zone;
+            checkbox.checked = originalPlaces.includes(zone);
+            const label = document.createElement('label');
+            label.textContent = zone;
+            const wrapper = document.createElement('div');
+            wrapper.style.textAlign = 'center';
+            wrapper.appendChild(checkbox);
+            wrapper.appendChild(label);
+            placeContainer.appendChild(wrapper);
+        });
+        cells[5].textContent = '';
+        cells[5].style.width = '40%'
+        cells[5].appendChild(placeContainer);
+    }
+
+    // Apply changes in row
+    function applyRowChanges(row, editBtn, deleteBtn) {
+        const cells = row.querySelectorAll('td');
+
+        const name = cells[1].querySelector('input').value.trim();
+        const role = cells[2].querySelector('input:checked')?.value || '';
+        const exceptions = cells[3].querySelector('input').value.split(',').map(x => x.trim());
+        const shifts = parseInt(cells[4].querySelector('input').value) || 0;
+        const places = Array.from(cells[5].querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+
+        if (!name || !role || places.length === 0) {
+            alert('Please fill all required fields and select at least one place');
+            return;
+        }
+
+        // Replace inputs with text
+        cells[1].textContent = name;
+        cells[2].textContent = role;
+        cells[3].textContent = exceptions.join(', ');
+        cells[4].textContent = shifts;
+        cells[5].textContent = places.join(', ');
+
+        editBtn.textContent = 'Edit';
+        deleteBtn.style.display = 'inline-block';
+
+        // Send updated row to backend
+        fetch('/account/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, role, exceptions, shifts, places })
+        });
+    }
+    
+    document.querySelectorAll('#people-table tbody tr').forEach(EditableCells);
+
 };

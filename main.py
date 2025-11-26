@@ -49,6 +49,13 @@ def create_users_table():
             password TEXT NOT NULL
         )
     """)
+
+    # Add default user
+    cur.execute("""
+        INSERT OR IGNORE INTO users (username, password)
+        VALUES (?, ?)
+    """, ("test", "1"))
+
     conn.commit()
     cur.close()
     conn.close()
@@ -85,14 +92,26 @@ def get_workers(user):
     conn.close()
     return rows
 
-# Delete worker by id in SQL workers table
-def delete_person(pid):
+# Delete worker by name in SQL workers table for current user 
+def delete_worker(username, name):
     conn = db_connect()
     cur = conn.cursor()
     cur.execute('''
         DELETE FROM workers 
-        WHERE id = ?''', 
-        (pid,))
+        WHERE username = ? AND name = ?''', 
+        (username, name))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def update_worker(username, name, role, exceptions, shifts, places):
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute('''
+        UPDATE workers
+        SET role = ?, exceptions = ?, shifts = ?, places = ?
+        WHERE username = ? AND name = ?
+    ''', (role, exceptions, shifts, places, username, name))
     conn.commit()
     cur.close()
     conn.close()
@@ -133,15 +152,10 @@ def account():
     # Get all workers from SQL(workers) of current user to dict 
     rows = get_workers(session["user"])
     workers = [dict(row) for row in rows]
-
-    # Check    
-    print(workers)
     
     if request.method == 'POST':
         data = request.get_json() 
-        if not data:
-            return {"success": False, "message": "No data provided"}, 400
-
+        
         name = data.get("name")
         role = data.get("role")
         exceptions = data.get("exceptions")
@@ -152,6 +166,38 @@ def account():
         return {"success": True}
 
     return render_template("account.html", username=session["user"], workers=workers)
+
+@app.route('/account/update', methods=['POST'])
+def update():
+    if "user" not in session:
+        return {"success": False, "error": "Unauthorized"}, 401
+
+    data = request.get_json()
+    name = data.get("name")
+    role = data.get("role")
+    exceptions = data.get("exceptions")
+    shifts = data.get("shifts")
+    places = data.get("places")
+
+    print(data)
+
+    # Update worker with same name for current user
+    update_worker(session["user"], name, role, ','.join(exceptions), shifts, ','.join(places))
+
+    return {"success": True}
+
+@app.route('/account/delete', methods=['POST'])
+def delete():
+    if "user" not in session:
+        return redirect(url_for('login'))
+    
+    data = request.get_json()
+    name = data.get("name")
+    if not name:
+        return {"success": False, "error": "Missing name"}, 400
+
+    delete_worker(session["user"], name)
+    return {"success": True, "message": "Deleted successfully"}
 
 @app.route('/logout')
 def logout():
