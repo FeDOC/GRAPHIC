@@ -6,15 +6,22 @@ const page = document.body.id //get body id (to run js parts for specific page)
 
 if (page === 'index-page') {
 
-    // Get people list from HTML
-    const people = JSON.parse(document.getElementById('people-data').dataset.people);
+    
 
-    // Global suggestions container
-    const suggestionBox = document.createElement("div");
-    suggestionBox.classList.add("autocomplete-suggestions");
-    document.body.appendChild(suggestionBox);
+    
 
-    document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("DOMContentLoaded", async () => {
+
+        // async function to load workers names from SQL(workers)
+        const response = await fetch("/api/names");
+        const data = await response.json();
+        const names = data.names || [];
+
+        // Global suggestions container
+        const suggestionBox = document.createElement("div");
+        suggestionBox.classList.add("autocomplete-suggestions");
+        document.body.appendChild(suggestionBox);
+        
         // Select all editable cells
         document.querySelectorAll(".editable").forEach(cell => {
             cell.addEventListener("click", function () {
@@ -39,7 +46,7 @@ if (page === 'index-page') {
                             return;
                         }
 
-                        const matches = people.filter(name => name.toLowerCase().includes(value));
+                        const matches = names.filter(name => name.toLowerCase().includes(value));
                         matches.forEach(match => {
                             let option = document.createElement("div");
                             option.classList.add("autocomplete-option");
@@ -99,7 +106,9 @@ if (page === 'account-page') {
     
     // ---------------------------- 
     // PAGE HAS TABS:
-    // 1. WORKERS (Has table with workers name, role and place. Can add, edit and delete workers)
+    // 1. WORKERS 
+    // 1.1 Has table with workers name, role and place. Can add, edit and delete workers)
+    //
     // 2. MONTHS (has table with workers name, role, number of shifts in month, 
     // exception dates and place) 
     // ----------------------------
@@ -121,7 +130,7 @@ if (page === 'account-page') {
     // ADD WORKER TO TABLE
     // ----------------------------
     const addBtn = document.getElementById('add-person-btn');
-    const tableBody = document.querySelector('#people-table tbody');
+    const tableBody = document.querySelector('#workers-table tbody');
 
     // Add worker button
     addBtn.addEventListener('click', () => {
@@ -278,7 +287,7 @@ if (page === 'account-page') {
             deleteBtn.remove();
             EditableCells(row);
 
-            fetch('/account', {
+            fetch('/account/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, role, exceptions, shifts, places })
@@ -342,9 +351,9 @@ if (page === 'account-page') {
                 }
             });
         });
-
-        
     }
+    // Each row has EditableCells
+    document.querySelectorAll('#workers-table tbody tr').forEach(EditableCells);
 
     // Edit cells in row 
     function enterEditMode(row, editBtn, deleteBtn) {
@@ -470,7 +479,5 @@ if (page === 'account-page') {
             body: JSON.stringify({ name, role, exceptions, shifts, places })
         });
     }
-    
-    document.querySelectorAll('#people-table tbody tr').forEach(EditableCells);
 
 };

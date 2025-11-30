@@ -85,7 +85,7 @@ def get_workers(user):
         SELECT id, username, name, role, exceptions, shifts, places
         FROM workers
         WHERE username = ?
-        ORDER BY id""", 
+        ORDER BY name""", 
         (user,))
     rows = cur.fetchall()
     cur.close()
@@ -144,28 +144,41 @@ def login():
 
     return render_template("login.html") 
 
-@app.route("/account", methods=['GET', 'POST'])
+@app.route("/account", methods=["GET"])
 def account():
     if "user" not in session:
         return redirect(url_for("login"))
-    
-    # Get all workers from SQL(workers) of current user to dict 
+
+    # Load workers for template
     rows = get_workers(session["user"])
     workers = [dict(row) for row in rows]
-    
-    if request.method == 'POST':
-        data = request.get_json() 
-        
-        name = data.get("name")
-        role = data.get("role")
-        exceptions = data.get("exceptions")
-        shifts = data.get("shifts")
-        places = data.get("places")
 
-        add_worker(session["user"], name, role, ','.join(exceptions), shifts, ','.join(places))
-        return {"success": True}
+    return render_template("account.html",
+                           username=session["user"],
+                           workers=workers)
 
-    return render_template("account.html", username=session["user"], workers=workers)
+@app.route("/account/add", methods=["POST"])
+def account_add():
+    if "user" not in session:
+        return {"success": False, "error": "Not logged in"}, 401
+
+    data = request.get_json()
+
+    name = data.get("name")
+    role = data.get("role")
+    exceptions = data.get("exceptions", [])
+    shifts = data.get("shifts")
+    places = data.get("places", [])
+
+    add_worker(
+        session["user"],
+        name,
+        role,
+        ", ".join(exceptions),
+        shifts,
+        ", ".join(places))
+
+    return {"success": True}
 
 @app.route('/account/update', methods=['POST'])
 def update():
@@ -182,7 +195,7 @@ def update():
     print(data)
 
     # Update worker with same name for current user
-    update_worker(session["user"], name, role, ','.join(exceptions), shifts, ','.join(places))
+    update_worker(session["user"], name, role, ', '.join(exceptions), shifts, ', '.join(places))
 
     return {"success": True}
 
@@ -248,8 +261,17 @@ def create():
         month=month,
         days_in_month=days_in_month,
         table_rows=table_rows,
-        people=people
     )
+
+# API to get names of workers from SQL to use in JS
+@app.route("/api/names")
+def api_names():
+    if "user" not in session:
+        return {"error": "not authenticated"}, 401
+
+    workers = [dict(row) for row in get_workers(session["user"])]
+    names = [w["name"] for w in workers]
+    return {"names": names}
 
 # Completely resets page
 @app.route('/reset', methods=['POST'])

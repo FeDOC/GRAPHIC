@@ -10,7 +10,7 @@
     <a href="{{ url_for('logout') }}">Logout</a>
 
     <div class="tabs">
-        <div class="tab active" data-tab="people">People</div>
+        <div class="tab active" data-tab="workers">People</div>
         <div class="tab" data-tab="months">Months</div>
     </div>
 
@@ -19,7 +19,7 @@
         <h3>Your Workers</h3>
         <button id="add-person-btn">+ Add Person</button>
 
-        <table id="people-table">
+        <table id="workers-table">
             <thead>
                 <tr>
                     <th></th>
@@ -45,9 +45,44 @@
         </table>
 
     </div>
+
     <!-- Month tab -->
     <div id="months" class="tab-content">
         <h3>Months</h3>
+        <div class="months-container">
+
+            <!-- Table with workers params for month -->
+            <div class="month-workers-table-wrapper">
+                <table id="month-workers-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Name</th>
+                            <th>Exception Dates</th>
+                            <th>Shifts Number</th>
+                        </tr>
+                    </thead>
+                    <tbody> 
+                        {% for w in workers %}
+                        <tr>
+                            <td></td>
+                            <td>{{ w.name }}</td>
+                            <td>{{ w.exceptions }}</td>
+                            <td>{{ w.shifts }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Shifts table -->
+            <div class="month-shift-table-wrapper">
+                
+            </div>
+            
+            
+        </div>
+        
     </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>

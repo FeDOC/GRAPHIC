@@ -110,9 +110,11 @@ body {
     display: block;
 }
 
-/* People table styling */
+/* ----------- */
+/* Workers Tab */
+/* ----------- */
 
-#people-table {
+#workers-table {
     margin-top: 10px;
     border-collapse: collapse;
     width: 100%;
@@ -120,20 +122,83 @@ body {
     border: none;
 }
 
-#people-table th,
-#people-table td {
+#workers-table th,
+#workers-table td {
     border: 1px solid #ccc;
     padding: 3px;
     text-align: center;
 }
 
-#people-table th {
+#workers-table th {
     background-color: #f2f2f2;
 }
  
-#people-table td:first-child,
-#people-table th:first-child {
+#workers-table td:first-child,
+#workers-table th:first-child {
     width: auto;
     border: none;
     background: transparent;
-} 
+}
+
+#workers-table th:nth-child(4),
+#workers-table td:nth-child(4) {
+    width: 15%;
+}
+
+#workers-table th:nth-child(5),
+#workers-table td:nth-child(5) {
+    width: 10%;
+}
+
+#workers-table th:nth-child(6),
+#workers-table td:nth-child(6) {
+    width: 30%;
+}
+
+/* --------- */
+/* Month Tab */
+/* --------- */
+
+.months-container {
+    display: flex;
+    gap: 20px;
+}
+
+/* Control widths here */
+.month-workers-table-wrapper {
+    flex: 0 0 25%;   /* LEFT table takes 45% width */
+}
+
+#month-workers-table {
+    border-collapse: collapse;
+    width: 100%;
+    table-layout: auto;
+    border: none;
+}
+
+#month-workers-table th,
+#month-workers-table td {
+    border: 1px solid #ccc;
+    padding: 3px;
+    text-align: center;
+}
+
+#month-workers-table th {
+    background-color: #f2f2f2;
+}
+ 
+#month-workers-table th:first-child,
+#month-workers-table td:first-child {
+    width: auto;
+    border: none;
+    background: transparent;
+}
+
+#month-workers-table th:nth-child(4),
+#month-workers-table td:nth-child(4) {
+    width: 20%;
+}
+
+.month-shift-table-wrapper {
+    flex: 1;         /* RIGHT table takes the rest */
+}
