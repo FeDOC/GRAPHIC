@@ -285,9 +285,9 @@ if (page === 'account-page') {
 
             applyBtn.remove();
             deleteBtn.remove();
-            EditableCells(row);
+            WorkersEditableCells(row);
 
-            fetch('/account/add', {
+            fetch('/account/workers/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, role, exceptions, shifts, places })
@@ -301,17 +301,17 @@ if (page === 'account-page') {
     });
 
     // Make table cells editable
-    function EditableCells(row) {
+    function WorkersEditableCells(row) {
         const cells = row.querySelectorAll('td'); // choose all td in row
         
         const actionCell = cells[0];
 
         let editBtn = actionCell.querySelector('button.edit');
         if (!editBtn) {
-        editBtn = document.createElement('button');
-        editBtn.textContent = 'Edit';
-        editBtn.classList.add('action-btn', 'edit');
-        actionCell.appendChild(editBtn);
+            editBtn = document.createElement('button');
+            editBtn.textContent = 'Edit';
+            editBtn.classList.add('action-btn', 'edit');
+            actionCell.appendChild(editBtn);
         }
 
         let deleteBtn = actionCell.querySelector('button.delete');
@@ -337,7 +337,7 @@ if (page === 'account-page') {
             if (!confirm(`Are you sure you want to delete ${name}?`)) return;
 
             // Send delete request to sql workers
-            fetch('/account/delete', {
+            fetch('/account/workers/delete', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name })
@@ -353,7 +353,7 @@ if (page === 'account-page') {
         });
     }
     // Each row has EditableCells
-    document.querySelectorAll('#workers-table tbody tr').forEach(EditableCells);
+    document.querySelectorAll('#workers-table tbody tr').forEach(WorkersEditableCells);
 
     // Edit cells in row 
     function enterEditMode(row, editBtn, deleteBtn) {
@@ -473,11 +473,79 @@ if (page === 'account-page') {
         deleteBtn.style.display = 'inline-block';
 
         // Send updated row to backend
-        fetch('/account/update', {
+        fetch('/account/workers/update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, role, exceptions, shifts, places })
         });
     }
 
+    // ----------------------------
+    // EDIT ROWS IN MONTHS
+    // ----------------------------
+
+    function MonthEditableCells(row) {
+        const cells = row.querySelectorAll('td'); // choose all td in row
+        const actionCell = cells[0]; // choose action cell
+
+        let editBtn = actionCell.querySelector('.edit-btn'); // choose Edit button
+
+        // Edit button logic
+        editBtn.addEventListener('click', () => {
+            if (editBtn.textContent === 'Edit') {
+                editMonthRow(row, editBtn);
+            } else if (editBtn.textContent === 'Apply') {
+                applyMonthRow(row, editBtn);
+            }
+        });
+    }
+
+    function editMonthRow(row, editBtn) {
+        const cells = row.querySelectorAll('td');
+
+        // Action cell
+        cells[0].style.width = '15%'
+        editBtn.textContent = 'Apply';
+
+        // Exceptions Dates cell 
+        const excInput = document.createElement('input');
+        excInput.type = 'text';
+        excInput.value = cells[2].textContent;
+        cells[2].textContent = '';
+        cells[2].style.width = '40%'
+        cells[2].appendChild(excInput);
+
+        // Shifts number cell
+        const shiftsInput = document.createElement('input');
+        shiftsInput.type = 'number';
+        shiftsInput.min = 0;
+        shiftsInput.style.width = '40%';
+        shiftsInput.value = parseInt(cells[3].textContent) || 0;
+        cells[3].style.width = '8%';
+        cells[3].textContent = '';
+        cells[3].appendChild(shiftsInput);
+    }
+
+    function applyMonthRow(row, editBtn) {
+        const cells = row.querySelectorAll('td');
+
+        const name = cells[1].textContent;
+        const exceptions = cells[2].querySelector('input').value.split(',').map(x => x.trim());
+        const shifts = parseInt(cells[3].querySelector('input').value) || 0;
+
+        // Replace inputs with text
+        cells[2].textContent = exceptions.join(', ');
+        cells[3].textContent = shifts;
+
+        editBtn.textContent = 'Edit';
+
+        // Send updated row to backend
+        // fetch('/account/months/update', {
+        //     method: 'POST',
+        //     headers: { 'Content-Type': 'application/json' },
+        //     body: JSON.stringify({ name, exceptions, shifts })
+        // });
+    }
+    
+    document.querySelectorAll('#month-workers-table tbody tr').forEach(MonthEditableCells);
 };

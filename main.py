@@ -4,8 +4,6 @@ import sqlite3
 from datetime import datetime
 from config import Config
 
-people = ["Alice", "Bob", "Charlie", "David", "Eva", "Frank"]
-
 app = Flask(__name__)
 app.config.from_object(Config)
 
@@ -47,8 +45,7 @@ def create_users_table():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL
-        )
-    """)
+        )""")
 
     # Add default user
     cur.execute("""
@@ -60,6 +57,23 @@ def create_users_table():
     cur.close()
     conn.close()
 create_users_table()
+
+def create_months_table():
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS months (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            name TEXT NOT NULL,
+            month TEXT NOT NULL,
+            exceptions TEXT,
+            shifts INTEGER NOT NULL
+            )''')
+    conn.commit()
+    cur.close()
+    conn.close()
+create_months_table()
 
 # ---------------------------------------------------------
 # DATABASE ACTIONS
@@ -104,6 +118,7 @@ def delete_worker(username, name):
     cur.close()
     conn.close()
 
+# Update worker in worker tab
 def update_worker(username, name, role, exceptions, shifts, places):
     conn = db_connect()
     cur = conn.cursor()
@@ -116,6 +131,19 @@ def update_worker(username, name, role, exceptions, shifts, places):
     cur.close()
     conn.close()
 
+# Update worker in month tab
+def update_months(username, name, month, exceptions, shifts):
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute('''
+        UPDATE months
+        SET exceptions = ?, shifts = ?
+        WHERE username = ? AND name = ? and month = ?
+    ''', (exceptions, shifts, username, name, month))
+    conn.commit()
+    cur.close()
+    conn.close()
+    
 # --------------------------------------------------
 # ROUTES
 # --------------------------------------------------
@@ -153,11 +181,15 @@ def account():
     rows = get_workers(session["user"])
     workers = [dict(row) for row in rows]
 
+    #Load date for month tabs
+    month = datetime.now().month
+    year = datetime.now().year
+
     return render_template("account.html",
                            username=session["user"],
                            workers=workers)
 
-@app.route("/account/add", methods=["POST"])
+@app.route("/account/workers/add", methods=["POST"])
 def account_add():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401
@@ -180,8 +212,8 @@ def account_add():
 
     return {"success": True}
 
-@app.route('/account/update', methods=['POST'])
-def update():
+@app.route('/account/workers/update', methods=['POST'])
+def update_workers():
     if "user" not in session:
         return {"success": False, "error": "Unauthorized"}, 401
 
@@ -192,14 +224,12 @@ def update():
     shifts = data.get("shifts")
     places = data.get("places")
 
-    print(data)
-
     # Update worker with same name for current user
     update_worker(session["user"], name, role, ', '.join(exceptions), shifts, ', '.join(places))
 
     return {"success": True}
 
-@app.route('/account/delete', methods=['POST'])
+@app.route('/account/workers/delete', methods=['POST'])
 def delete():
     if "user" not in session:
         return redirect(url_for('login'))
@@ -211,6 +241,22 @@ def delete():
 
     delete_worker(session["user"], name)
     return {"success": True, "message": "Deleted successfully"}
+
+# Update rows in month tab
+# @app.route('/account/months/update', methods=['POST'])
+# def update_month():
+#     if "user" not in session:
+#         return {"success": False, "error": "Unauthorized"}, 401
+
+#     data = request.get_json()
+#     name = data.get("name")
+#     exceptions = data.get("exceptions")
+#     shifts = data.get("shifts")
+
+#     # Update worker exceptions and shifts number for current month, name=const)
+#     update_months(session["user"], name, ', '.join(exceptions), shifts, month)
+
+#     return {"success": True}
 
 @app.route('/logout')
 def logout():

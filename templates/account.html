@@ -48,7 +48,7 @@
 
     <!-- Month tab -->
     <div id="months" class="tab-content">
-        <h3>Months</h3>
+        <h3>December</h3>
         <div class="months-container">
 
             <!-- Table with workers params for month -->
@@ -65,7 +65,9 @@
                     <tbody> 
                         {% for w in workers %}
                         <tr>
-                            <td></td>
+                            <td>
+                                <button class="edit-btn">Edit</button>
+                            </td>
                             <td>{{ w.name }}</td>
                             <td>{{ w.exceptions }}</td>
                             <td>{{ w.shifts }}</td>
