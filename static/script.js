@@ -107,7 +107,7 @@ if (page === 'account-page') {
     // ---------------------------- 
     // PAGE HAS TABS:
     // 1. WORKERS 
-    // 1.1 Has table with workers name, role and place. Can add, edit and delete workers)
+    // 1.1 Has table with workers name, role, vacations dates and place. Can add, edit and delete workers)
     //
     // 2. MONTHS (has table with workers name, role, number of shifts in month, 
     // exception dates and place) 
@@ -127,8 +127,12 @@ if (page === 'account-page') {
     });
 
     // ----------------------------
-    // ADD WORKER TO TABLE
+    // PEOPLE TAB
     // ----------------------------
+
+        // ----------------------------
+        // ADD WORKER TO TABLE
+        // ----------------------------
     const addBtn = document.getElementById('add-person-btn');
     const tableBody = document.querySelector('#workers-table tbody');
 
@@ -201,25 +205,30 @@ if (page === 'account-page') {
         roleTd.appendChild(container_radio);
         row.appendChild(roleTd);
         
-
-        // Exception dates
-        const exceptionTd = document.createElement('td');
-        exceptionTd.style.width = '13%'
-        const exceptionInput = document.createElement('input');
-        exceptionInput.type = 'text';
-        exceptionInput.placeholder = 'Day, day, ...';
-        exceptionTd.appendChild(exceptionInput);
-        row.appendChild(exceptionTd);
+        // Vacations dates
+        const vacationTd = document.createElement('td');
+        vacationTd.style.width = '20%'
+        const vacationInput = document.createElement('textarea');
+        vacationInput.style.minHeight = '30px';
+        vacationInput.style.width = '100%';
+        vacationInput.style.boxSizing = 'border-box';
+        vacationInput.placeholder = 'DD.MM.YY - DD.MM.YY, ...';
+        vacationInput.addEventListener('input', () => {
+            vacationInput.style.height = 'auto';
+            vacationInput.style.height = vacationInput.scrollHeight + 'px';
+        });
+        vacationTd.appendChild(vacationInput);
+        vacationInput.dispatchEvent(new Event('input'));
+        row.appendChild(vacationTd);
 
         // Number of shifts
         const shiftsTd = document.createElement('td'); 
-        shiftsTd.style.width = '8%';
         const shiftsInput = document.createElement('input');
         shiftsInput.type = 'number';
         shiftsInput.min = 0;
         shiftsInput.value = 0;
-        shiftsInput.style.width = '50%';
-        shiftsInput.style.boxSizing = 'border-box';
+        shiftsInput.style.width = '60%';
+        //shiftsInput.style.boxSizing = 'border-box';
         shiftsTd.appendChild(shiftsInput);
         row.appendChild(shiftsTd);
 
@@ -262,7 +271,7 @@ if (page === 'account-page') {
         applyBtn.addEventListener('click', () => {
             const name = nameInput.value.trim();
             const role = container_radio.querySelector('input:checked')?.value || null;
-            const exceptions = exceptionInput.value.split(',').map(x => x.trim())
+            const vacations = vacationInput.value.split(',').map(x => x.trim())
             const shifts = shiftsInput.value;
             const places = Array.from(container_checkbox.querySelectorAll('input[type="checkbox"]:checked'))
                                 .map(checkbox => checkbox.value);
@@ -279,7 +288,7 @@ if (page === 'account-page') {
 
             nameTd.textContent = name;
             roleTd.textContent = role;
-            exceptionTd.textContent = exceptions.join(', ');
+            vacationTd.textContent = vacations.join(', ');
             shiftsTd.textContent = shifts;
             placeTd.textContent = places.join(', ');
 
@@ -290,7 +299,7 @@ if (page === 'account-page') {
             fetch('/account/workers/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, role, exceptions, shifts, places })
+                body: JSON.stringify({ name, role, vacations, shifts, places })
             });
         });
 
@@ -406,13 +415,20 @@ if (page === 'account-page') {
         cells[2].textContent = '';
         cells[2].appendChild(roleContainer);
 
-        // Exceptions cell 
-        const excInput = document.createElement('input');
-        excInput.type = 'text';
-        excInput.value = cells[3].textContent;
+        // Vacations cell 
+        const vacInput = document.createElement('textarea');
+        vacInput.value = cells[3].textContent;
         cells[3].textContent = '';
-        cells[3].style.width = '13%'
-        cells[3].appendChild(excInput);
+        cells[3].style.width = '20%';
+        vacInput.style.width = '100%';
+        vacInput.style.boxSizing = 'border-box';
+        vacInput.style.overflow = 'hidden';
+        vacInput.addEventListener('input', () => {
+            vacInput.style.height = 'auto';
+            vacInput.style.height = vacInput.scrollHeight + 'px';
+        });
+        cells[3].appendChild(vacInput);
+        vacInput.dispatchEvent(new Event('input'));
 
         // Number of shifts cell
         const shiftsInput = document.createElement('input');
@@ -453,7 +469,7 @@ if (page === 'account-page') {
 
         const name = cells[1].querySelector('input').value.trim();
         const role = cells[2].querySelector('input:checked')?.value || '';
-        const exceptions = cells[3].querySelector('input').value.split(',').map(x => x.trim());
+        const vacations = cells[3].querySelector('textarea').value.split(',').map(x => x.trim());
         const shifts = parseInt(cells[4].querySelector('input').value) || 0;
         const places = Array.from(cells[5].querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
 
@@ -465,7 +481,7 @@ if (page === 'account-page') {
         // Replace inputs with text
         cells[1].textContent = name;
         cells[2].textContent = role;
-        cells[3].textContent = exceptions.join(', ');
+        cells[3].textContent = vacations.join(', ');
         cells[4].textContent = shifts;
         cells[5].textContent = places.join(', ');
 
@@ -476,13 +492,32 @@ if (page === 'account-page') {
         fetch('/account/workers/update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, role, exceptions, shifts, places })
+            body: JSON.stringify({ name, role, vacations, shifts, places })
         });
     }
 
     // ----------------------------
-    // EDIT ROWS IN MONTHS
+    // MONTHS TAB
     // ----------------------------
+
+    const monthsTabs = document.querySelectorAll('.month-tab');
+    const monthContents = document.querySelectorAll('.tab-content');
+
+    // Previous-Current-Next month tab switching
+    monthsTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // first make all tabs and contents inactive
+            tabs.forEach(t => t.classList.remove('active'));
+            monthContents.forEach(c => c.classList.remove('active'));
+            // add active to clicked one tab and its content
+            tab.classList.add('active');
+            document.getElementById(tab.dataset.tab).classList.add('active');
+        });
+    });
+
+        // ----------------------------
+        // EDIT ROWS IN MONTHS
+        // ----------------------------
 
     function MonthEditableCells(row) {
         const cells = row.querySelectorAll('td'); // choose all td in row

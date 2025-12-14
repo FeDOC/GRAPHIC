@@ -84,7 +84,13 @@ body {
     margin: 40px;
 }
 
-/* Account  */
+/* ------- */
+/* Account */
+/* ------- */
+
+    /* --------------------- */
+    /* People and Month Tabs */
+    /* --------------------- */
 .tabs {
     display: flex;
     margin-bottom: 20px;
@@ -110,9 +116,9 @@ body {
     display: block;
 }
 
-/* ----------- */
-/* Workers Tab */
-/* ----------- */
+    /* ----------- */
+    /* Workers Tab */
+    /* ----------- */
 
 #workers-table {
     margin-top: 10px;
@@ -125,7 +131,7 @@ body {
 #workers-table th,
 #workers-table td {
     border: 1px solid #ccc;
-    padding: 3px;
+    padding: 5px;
     text-align: center;
 }
 
@@ -135,7 +141,7 @@ body {
  
 #workers-table td:first-child,
 #workers-table th:first-child {
-    width: auto;
+    width: 11%;
     border: none;
     background: transparent;
 }
@@ -147,7 +153,7 @@ body {
 
 #workers-table th:nth-child(5),
 #workers-table td:nth-child(5) {
-    width: 10%;
+    width: 6%;
 }
 
 #workers-table th:nth-child(6),
@@ -155,14 +161,42 @@ body {
     width: 30%;
 }
 
-/* --------- */
-/* Month Tab */
-/* --------- */
+    /* ---------- */
+    /* Months Tab */
+    /* ---------- */
+
+        /* ---------- */
+        /* Month Tabs */
+        /* ---------- */
+
+.month-tab {
+    display: inline-block;
+    padding: 8px 16px;
+    cursor: pointer;
+}
+
+.month-tab.active {
+    font-weight: bold;
+    border-bottom: 2px solid #000;
+}
+
+.month-tab-content {
+    display: none;
+    padding-top: 20px;
+}
+
+.month-tab-content.active {
+    display: block;
+}
 
 .months-container {
     display: flex;
     gap: 20px;
 }
+
+        /* ------------------ */
+        /* Month Tabs Content */
+        /* ------------------ */
 
 /* Control widths here */
 .month-workers-table-wrapper {

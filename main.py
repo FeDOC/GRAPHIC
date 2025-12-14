@@ -16,26 +16,6 @@ def db_connect():
     conn.row_factory = sqlite3.Row  # Dict-like rows
     return conn
 
-# Create SQL table (workers) for workers
-def create_workers_table():
-    conn = db_connect()
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS workers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL,
-            name TEXT NOT NULL,
-            role TEXT NOT NULL,
-            exceptions TEXT,
-            shifts INTEGER NOT NULL,
-            places TEXT NOT NULL
-        )
-    """)
-    conn.commit()
-    cur.close()
-    conn.close()
-create_workers_table()
-    
 # Create SQL table (users) for users to login
 def create_users_table():
     conn = db_connect()
@@ -58,6 +38,29 @@ def create_users_table():
     conn.close()
 create_users_table()
 
+# Create SQL table (workers) for workers
+def create_workers_table():
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS workers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            vacation_start DATE,
+            vacation_end DATE,
+            shifts INTEGER NOT NULL,
+            places TEXT NOT NULL
+        )
+    """)
+    # cur.execute('''DROP TABLE workers''')
+    conn.commit()
+    cur.close()
+    conn.close()
+create_workers_table()
+    
+# Create SQL table (months) for exceptions and N of shifts for specified month
 def create_months_table():
     conn = db_connect()
     cur = conn.cursor()
@@ -80,31 +83,58 @@ create_months_table()
 # ---------------------------------------------------------
 
 # Add worker in SQL(workers)
-def add_worker(user, name, role, exceptions, shifts, places):
+def add_worker(user, name, role, vacations, shifts, places):
+
+    # Parse vacations to start and end in date format 
+    def parse_vacations(vacations: list[str]) -> list[tuple[datetime.date, datetime.date]]:
+        vacs = [list(map(lambda x: x.strip(), vac.split('-'))) for vac in vacations]
+        res = []
+        for vac in vacs:
+            start, end = vac
+            vac_start = datetime.strptime(start, "%d.%m.%y").date()
+            vac_end = datetime.strptime(end, "%d.%m.%y").date()
+            res.append((vac_start, vac_end))
+        return res
+    vacations = parse_vacations(vacations)
+    print(vacations)
     conn = db_connect()
     cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO workers (username, name, role, exceptions, shifts, places)
-        VALUES (?, ?, ?, ?, ?, ?)""", 
-        (user, name, role, exceptions, shifts, places))
+    for vacation_start, vacation_end in vacations:
+        cur.execute("""
+            INSERT INTO workers (username, name, role, vacation_start, vacation_end, shifts, places)
+            VALUES (?, ?, ?, ?, ?, ?, ?)""", 
+            (user, name, role, vacation_start, vacation_end, shifts, places))
     conn.commit()
     cur.close()
     conn.close()
 
 # Get all workers from SQL(workers)
 def get_workers(user):
+    # Query from SQL 
     conn = db_connect()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, username, name, role, exceptions, shifts, places
+        SELECT id, username, name, role, vacation_start, vacation_end, shifts, places
         FROM workers
         WHERE username = ?
         ORDER BY name""", 
         (user,))
     rows = cur.fetchall()
+    rows = [dict(row) for row in rows]
+
+    # Transform vacations to interval string 'vacation_start - vacation_end'
+    workers = []
+    for row in rows:
+        if row["vacation_start"] and row["vacation_end"]:
+            start_str = datetime.strptime(row["vacation_start"], "%Y-%m-%d").date().strftime("%d.%m.%y")
+            end_str = datetime.strptime(row["vacation_end"], "%Y-%m-%d").date().strftime("%d.%m.%y")
+            row["vacations"] = f"{start_str} - {end_str}"
+        else:
+            row["vacations"] = ""
+        workers.append(row)
     cur.close()
     conn.close()
-    return rows
+    return workers
 
 # Delete worker by name in SQL workers table for current user 
 def delete_worker(username, name):
@@ -119,14 +149,14 @@ def delete_worker(username, name):
     conn.close()
 
 # Update worker in worker tab
-def update_worker(username, name, role, exceptions, shifts, places):
+def update_worker(username, name, role, vacations, shifts, places):
     conn = db_connect()
     cur = conn.cursor()
     cur.execute('''
         UPDATE workers
-        SET role = ?, exceptions = ?, shifts = ?, places = ?
+        SET role = ?, vacations = ?, shifts = ?, places = ?
         WHERE username = ? AND name = ?
-    ''', (role, exceptions, shifts, places, username, name))
+    ''', (role, vacations, shifts, places, username, name))
     conn.commit()
     cur.close()
     conn.close()
@@ -178,10 +208,14 @@ def account():
         return redirect(url_for("login"))
 
     # Load workers for template
-    rows = get_workers(session["user"])
-    workers = [dict(row) for row in rows]
+    workers = get_workers(session["user"])
 
     #Load date for month tabs
+    now = datetime.now()
+    month_names = list(calendar.month_name)[1:]
+    months = {
+        
+    }
     month = datetime.now().month
     year = datetime.now().year
 
@@ -198,7 +232,7 @@ def account_add():
 
     name = data.get("name")
     role = data.get("role")
-    exceptions = data.get("exceptions", [])
+    vacations = data.get("vacations", [])
     shifts = data.get("shifts")
     places = data.get("places", [])
 
@@ -206,7 +240,7 @@ def account_add():
         session["user"],
         name,
         role,
-        ", ".join(exceptions),
+        vacations,
         shifts,
         ", ".join(places))
 
@@ -220,12 +254,12 @@ def update_workers():
     data = request.get_json()
     name = data.get("name")
     role = data.get("role")
-    exceptions = data.get("exceptions")
+    vacations = data.get("vacations")
     shifts = data.get("shifts")
     places = data.get("places")
 
     # Update worker with same name for current user
-    update_worker(session["user"], name, role, ', '.join(exceptions), shifts, ', '.join(places))
+    update_worker(session["user"], name, role, ', '.join(vacations), shifts, ', '.join(places))
 
     return {"success": True}
 

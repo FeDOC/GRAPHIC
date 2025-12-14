@@ -24,9 +24,9 @@
                 <tr>
                     <th></th>
                     <th>Name</th>
-                    <th>Work Role</th>
-                    <th>Exception Dates</th>
-                    <th>Shifts Number</th>
+                    <th>Role</th>
+                    <th>Vacations</th>
+                    <th>Shifts</th>
                     <th>Zone</th>
                 </tr>
             </thead>
@@ -36,7 +36,7 @@
                     <td></td>
                     <td>{{ w.name }}</td>
                     <td>{{ w.role }}</td>
-                    <td>{{ w.exceptions }}</td>
+                    <td>{{ w.vacations }}</td>
                     <td>{{ w.shifts }}</td>
                     <td>{{ w.places }}</td>
                 </tr>
@@ -48,6 +48,18 @@
 
     <!-- Month tab -->
     <div id="months" class="tab-content">
+        <div class="months-tabs">
+            <!-- data-tab for content, id for name of tab -->
+            <div class="month-tab" data-tab="prevContent" id="prevTab"></div>
+            <div class="month-tab active" data-tab="currentContent" id="currentTab"></div>
+            <div class="month-tab" data-tab="nextContent" id="nextTab"></div>
+        </div>
+
+        <div class="month-tab-contents">
+            <div class="month-tab-content" id="prevContent">Previous month content</div>
+            <div class="month-tab-content active" id="currentContent">Current month content</div>
+            <div class="month-tab-content" id="nextContent">Next month content</div>
+        </div>
         <h3>December</h3>
         <div class="months-container">
 
@@ -58,7 +70,7 @@
                         <tr>
                             <th></th>
                             <th>Name</th>
-                            <th>Exception Dates</th>
+                            <th>Exceptions</th>
                             <th>Shifts Number</th>
                         </tr>
                     </thead>
