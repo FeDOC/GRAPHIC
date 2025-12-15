@@ -3,6 +3,7 @@ import calendar
 import sqlite3
 from datetime import datetime
 from config import Config
+from collections import defaultdict
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -96,7 +97,8 @@ def add_worker(user, name, role, vacations, shifts, places):
             res.append((vac_start, vac_end))
         return res
     vacations = parse_vacations(vacations)
-    print(vacations)
+
+    # Add to SQL
     conn = db_connect()
     cur = conn.cursor()
     for vacation_start, vacation_end in vacations:
@@ -109,7 +111,7 @@ def add_worker(user, name, role, vacations, shifts, places):
     conn.close()
 
 # Get all workers from SQL(workers)
-def get_workers(user):
+def get_workers(user): # {name: {role: 'Day/Shifter', vacations:'date - date, ...', }}
     # Query from SQL 
     conn = db_connect()
     cur = conn.cursor()
@@ -123,15 +125,25 @@ def get_workers(user):
     rows = [dict(row) for row in rows]
 
     # Transform vacations to interval string 'vacation_start - vacation_end'
-    workers = []
+    workers = {} 
+    vacations_dict = defaultdict(list)
+    
     for row in rows:
+        name = row['name']
+        if name not in workers:
+            workers[name] = {
+                "role": row["role"],
+                "shifts": row["shifts"],
+                "places": row["places"],
+                "vacations": ""
+            }
+
         if row["vacation_start"] and row["vacation_end"]:
             start_str = datetime.strptime(row["vacation_start"], "%Y-%m-%d").date().strftime("%d.%m.%y")
             end_str = datetime.strptime(row["vacation_end"], "%Y-%m-%d").date().strftime("%d.%m.%y")
-            row["vacations"] = f"{start_str} - {end_str}"
-        else:
-            row["vacations"] = ""
-        workers.append(row)
+            vacations_dict[name].append(f"{start_str} - {end_str}")
+    for name, vac_list in vacations_dict.items():
+        workers[name]["vacations"] = "; ".join(vac_list)
     cur.close()
     conn.close()
     return workers
@@ -212,16 +224,22 @@ def account():
 
     #Load date for month tabs
     now = datetime.now()
-    month_names = list(calendar.month_name)[1:]
     months = {
-        
+        'prev_month': calendar.month_name[(now.month - 1) if (now.month - 1) > 0 else 12],
+        'cur_month': calendar.month_name[now.month],
+        'next_month': calendar.month_name[(now.month + 1) if (now.month + 1) < 13 else 1]
     }
-    month = datetime.now().month
-    year = datetime.now().year
+    years = {
+        'prev_year': now.year if now.month > 1 else now.year - 1,
+        'cur_year': now.year,
+        'next_year': now.year if now.month < 12 else now.year + 1,
+    } 
 
     return render_template("account.html",
-                           username=session["user"],
-                           workers=workers)
+                            username=session["user"],
+                            workers=workers,
+                            months=months,
+                            years = years)
 
 @app.route("/account/workers/add", methods=["POST"])
 def account_add():

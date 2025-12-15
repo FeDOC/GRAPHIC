@@ -200,7 +200,7 @@ body {
 
 /* Control widths here */
 .month-workers-table-wrapper {
-    flex: 0 0 25%;   /* LEFT table takes 45% width */
+    flex: 0 0 25%;   
 }
 
 #month-workers-table {

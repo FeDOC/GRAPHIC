@@ -501,17 +501,20 @@ if (page === 'account-page') {
     // ----------------------------
 
     const monthsTabs = document.querySelectorAll('.month-tab');
-    const monthContents = document.querySelectorAll('.tab-content');
+    const monthContents = document.querySelectorAll('.month-tab-content');
+    const workersTable = document.querySelector('.months-container')
 
     // Previous-Current-Next month tab switching
     monthsTabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            // first make all tabs and contents inactive
-            tabs.forEach(t => t.classList.remove('active'));
+            // first inactivate all tabs and contents 
+            monthsTabs.forEach(t => t.classList.remove('active'));
             monthContents.forEach(c => c.classList.remove('active'));
-            // add active to clicked one tab and its content
+            // activate clicked one tab + content
             tab.classList.add('active');
-            document.getElementById(tab.dataset.tab).classList.add('active');
+            const monthContent = document.getElementById(tab.dataset.tab);
+            monthContent.classList.add('active');
+            monthContent.appendChild(workersTable)
         });
     });
 

@@ -31,10 +31,10 @@
                 </tr>
             </thead>
             <tbody> 
-                {% for w in workers %}
+                {% for name, w in workers.items() %}
                 <tr>
                     <td></td>
-                    <td>{{ w.name }}</td>
+                    <td>{{ name }}</td>
                     <td>{{ w.role }}</td>
                     <td>{{ w.vacations }}</td>
                     <td>{{ w.shifts }}</td>
@@ -50,9 +50,15 @@
     <div id="months" class="tab-content">
         <div class="months-tabs">
             <!-- data-tab for content, id for name of tab -->
-            <div class="month-tab" data-tab="prevContent" id="prevTab"></div>
-            <div class="month-tab active" data-tab="currentContent" id="currentTab"></div>
-            <div class="month-tab" data-tab="nextContent" id="nextTab"></div>
+            <div class="month-tab" data-tab="prevContent" id="prevTab">
+                {{months.prev_month}} {{years.prev_year}}
+            </div>
+            <div class="month-tab active" data-tab="currentContent" id="currentTab">
+                {{months.cur_month}} {{years.cur_year}}
+            </div>
+            <div class="month-tab" data-tab="nextContent" id="nextTab">
+                {{months.next_month}} {{years.next_year}}
+            </div>
         </div>
 
         <div class="month-tab-contents">
@@ -60,10 +66,10 @@
             <div class="month-tab-content active" id="currentContent">Current month content</div>
             <div class="month-tab-content" id="nextContent">Next month content</div>
         </div>
-        <h3>December</h3>
+        
         <div class="months-container">
 
-            <!-- Table with workers params for month -->
+            <!-- Table with workers for month -->
             <div class="month-workers-table-wrapper">
                 <table id="month-workers-table">
                     <thead>
@@ -75,12 +81,12 @@
                         </tr>
                     </thead>
                     <tbody> 
-                        {% for w in workers %}
+                        {% for name, w in workers.items() %}
                         <tr>
                             <td>
                                 <button class="edit-btn">Edit</button>
                             </td>
-                            <td>{{ w.name }}</td>
+                            <td>{{ name }}</td>
                             <td>{{ w.exceptions }}</td>
                             <td>{{ w.shifts }}</td>
                         </tr>
