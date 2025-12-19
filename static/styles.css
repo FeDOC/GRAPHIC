@@ -180,6 +180,10 @@ body {
     border-bottom: 2px solid #000;
 }
 
+.month-page-layout {
+    display: flex;
+}
+
 .month-tab-content {
     display: none;
     padding-top: 20px;
@@ -189,50 +193,46 @@ body {
     display: block;
 }
 
-.months-container {
-    display: flex;
-    gap: 20px;
-}
-
         /* ------------------ */
         /* Month Tabs Content */
         /* ------------------ */
 
 /* Control widths here */
-.month-workers-table-wrapper {
+.month-tab-contents {
     flex: 0 0 25%;   
 }
 
-#month-workers-table {
+.month-workers-table {
     border-collapse: collapse;
     width: 100%;
     table-layout: auto;
     border: none;
 }
 
-#month-workers-table th,
-#month-workers-table td {
+.month-workers-table th,
+.month-workers-table td {
     border: 1px solid #ccc;
     padding: 3px;
     text-align: center;
 }
 
-#month-workers-table th {
+.month-workers-table th {
     background-color: #f2f2f2;
 }
  
-#month-workers-table th:first-child,
-#month-workers-table td:first-child {
+.month-workers-table th:first-child,
+.month-workers-table td:first-child {
     width: auto;
     border: none;
     background: transparent;
 }
 
-#month-workers-table th:nth-child(4),
-#month-workers-table td:nth-child(4) {
+.month-workers-table th:nth-child(4),
+.month-workers-table td:nth-child(4) {
     width: 20%;
 }
 
 .month-shift-table-wrapper {
+    padding-top: 20px;
     flex: 1;         /* RIGHT table takes the rest */
 }

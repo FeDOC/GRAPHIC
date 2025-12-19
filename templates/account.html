@@ -47,62 +47,135 @@
     </div>
 
     <!-- Month tab -->
-    <div id="months" class="tab-content">
+    <div class="tab-content" id="months" >
         <div class="months-tabs">
             <!-- data-tab for content, id for name of tab -->
             <div class="month-tab" data-tab="prevContent" id="prevTab">
-                {{months.prev_month}} {{years.prev_year}}
+                {{months.prev[1]}} {{years.prev}}
             </div>
             <div class="month-tab active" data-tab="currentContent" id="currentTab">
-                {{months.cur_month}} {{years.cur_year}}
+                {{months.cur[1]}} {{years.cur}}
             </div>
             <div class="month-tab" data-tab="nextContent" id="nextTab">
-                {{months.next_month}} {{years.next_year}}
+                {{months.next[1]}} {{years.next}}
             </div>
         </div>
-
-        <div class="month-tab-contents">
-            <div class="month-tab-content" id="prevContent">Previous month content</div>
-            <div class="month-tab-content active" id="currentContent">Current month content</div>
-            <div class="month-tab-content" id="nextContent">Next month content</div>
-        </div>
-        
-        <div class="months-container">
-
-            <!-- Table with workers for month -->
-            <div class="month-workers-table-wrapper">
-                <table id="month-workers-table">
+        <div class="month-page-layout">
+            <div class="month-tab-contents">
+                <div class="month-tab-content" id="prevContent">
+                    <div class="month-workers-table-wrapper">
+                        <!-- Table with workers for prev month -->
+                        <table class="month-workers-table">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Name</th>
+                                    <th>Exceptions</th>
+                                    <th>Shifts Number</th>
+                                </tr>
+                            </thead>
+                            <tbody> 
+                                {% for name, exceptions, shifts in months_workers['prev'] %}
+                                <tr>
+                                    <td>
+                                        <button class="edit-btn">Edit</button>
+                                    </td>
+                                    <td>{{ name }}</td>
+                                    <td>{{ exceptions or '' }}</td>
+                                    <td>{{ shifts }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="month-tab-content active" id="currentContent">
+                    <div class="month-workers-table-wrapper">
+                        <!-- Table with workers for cur month -->
+                        <table class="month-workers-table">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Name</th>
+                                    <th>Exceptions</th>
+                                    <th>Shifts Number</th>
+                                </tr>
+                            </thead>
+                            <tbody> 
+                                {% for name, exceptions, shifts in months_workers['cur'] %}
+                                <tr>
+                                    <td>
+                                        <button class="edit-btn">Edit</button>
+                                    </td>
+                                    <td>{{ name }}</td>
+                                    <td>{{ exceptions }}</td>
+                                    <td>{{ shifts }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="month-tab-content" id="nextContent">
+                    <div class="month-workers-table-wrapper">
+                        <!-- Table with workers for next month -->
+                        <table class="month-workers-table">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Name</th>
+                                    <th>Exceptions</th>
+                                    <th>Shifts Number</th>
+                                </tr>
+                            </thead>
+                            <tbody> 
+                                {% for name, exceptions, shifts in months_workers['next'] %}
+                                <tr>
+                                    <td>
+                                        <button class="edit-btn">Edit</button>
+                                    </td>
+                                    <td>{{ name }}</td>
+                                    <td>{{ exceptions }}</td>
+                                    <td>{{ shifts }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- Shifts table -->
+            <div class="month-shift-table-wrapper">
+                <table>
                     <thead>
                         <tr>
-                            <th></th>
-                            <th>Name</th>
-                            <th>Exceptions</th>
-                            <th>Shifts Number</th>
+                            <th>Day</th>
+                            <th>OTVET</th>
+                            <th>DIAGNOS</th>
+                            <th>EXTR</th>
+                            <th>PLAN</th>
+                            <th>GREEN</th>
+                            <th>YELLOW</th>
+                            <th>TORAC</th>
                         </tr>
                     </thead>
-                    <tbody> 
-                        {% for name, w in workers.items() %}
-                        <tr>
-                            <td>
-                                <button class="edit-btn">Edit</button>
-                            </td>
-                            <td>{{ name }}</td>
-                            <td>{{ w.exceptions }}</td>
-                            <td>{{ w.shifts }}</td>
-                        </tr>
+                    <tbody>
+                        {% for row in table_rows %}
+                            <tr class="{% if row.is_weekend %}weekend{% endif %}">
+                                <td>{{ row.day }}</td>
+                                
+                                <!-- Loop through each column (except first) to allow input -->
+                                {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
+                                <td class="editable" data-name="name_{{ column }}_{{ row.day }}">
+                                    {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }}
+                                </td>
+                                {% endfor %}
+                            </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            
-            <!-- Shifts table -->
-            <div class="month-shift-table-wrapper">
-                
-            </div>
-            
-            
         </div>
-        
     </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>

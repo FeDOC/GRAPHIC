@@ -1,12 +1,31 @@
 from flask import Flask, render_template, request, session, redirect, url_for, flash
 import calendar
 import sqlite3
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from config import Config
 from collections import defaultdict
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# ---------------------------------------------------------
+# COMMON FUNCTIONS
+# ---------------------------------------------------------
+def load_date():
+    now = datetime.now()
+        # month: dict[key: tuple[int, str]] 
+    months = { 
+        'prev': ((now.month - 1) if (now.month - 1) > 0 else 12, calendar.month_name[(now.month - 1) if (now.month - 1) > 0 else 12]),
+        'cur': (now.month, calendar.month_name[now.month]),
+        'next': ((now.month + 1) if (now.month + 1) < 13 else 1, calendar.month_name[(now.month + 1) if (now.month + 1) < 13 else 1])
+    }
+        # years: dict[key: int]
+    years = {
+        'prev': now.year if now.month > 1 else now.year - 1,
+        'cur': now.year,
+        'next': now.year if now.month < 12 else now.year + 1,
+    } 
+    return months, years
 
 # ---------------------------------------------------------
 # SQLite DATABASE
@@ -86,8 +105,8 @@ create_months_table()
 # Add worker in SQL(workers)
 def add_worker(user, name, role, vacations, shifts, places):
 
-    # Parse vacations to start and end in date format 
-    def parse_vacations(vacations: list[str]) -> list[tuple[datetime.date, datetime.date]]:
+    # Parse vacations string to start and end in date format 
+    def parse_vacations(vacations): # ["date - date", ...] -> [(datetime.date, datetime.date), ...]:
         vacs = [list(map(lambda x: x.strip(), vac.split('-'))) for vac in vacations]
         res = []
         for vac in vacs:
@@ -98,21 +117,62 @@ def add_worker(user, name, role, vacations, shifts, places):
         return res
     vacations = parse_vacations(vacations)
 
-    # Add to SQL
+    # Define month bounds
+    def month_bounds(year, month):
+        start = date(year, month, 1)
+        last_day = calendar.monthrange(year, month)[1]
+        end = date(year, month, last_day)
+        return start, end
+    
+    # Define vacations days for month  
+    def vacation_intervals_in_month(vac_start, vac_end, month_start, month_end):
+        if not vac_start:
+            return None
+        if vac_end < month_start or vac_start > month_end:
+            return None
+        start = max(vac_start, month_start)
+        end = min(vac_end, month_end)
+        days = [] 
+        cur = start 
+        while cur <= end: 
+            days.append(f'{cur.day}') 
+            cur += timedelta(days=1) 
+        return ", ".join(days)
+
+
+    # Add to SQL(workers, months)
     conn = db_connect()
     cur = conn.cursor()
     for vacation_start, vacation_end in vacations:
+        # Add to workers
         cur.execute("""
             INSERT INTO workers (username, name, role, vacation_start, vacation_end, shifts, places)
             VALUES (?, ?, ?, ?, ?, ?, ?)""", 
             (user, name, role, vacation_start, vacation_end, shifts, places))
+        
+        # Add to months
+        months, years = load_date()
+        for i in months:
+            month, year = months[i][0], years[i]
+            table_month = f'{year}-{month:02d}' ## YYYY-MM
+            month_start, month_end = month_bounds(year, month)
+            exceptions = vacation_intervals_in_month(
+                vacation_start,
+                vacation_end,
+                month_start,
+                month_end
+            )
+            cur.execute("""
+                INSERT INTO months
+                (username, name, month, exceptions, shifts)
+                VALUES (?, ?, ?, ?, ?)""", 
+                (user, name, table_month, exceptions, shifts))
     conn.commit()
     cur.close()
     conn.close()
 
 # Get all workers from SQL(workers)
-def get_workers(user): # {name: {role: 'Day/Shifter', vacations:'date - date, ...', }}
-    # Query from SQL 
+def get_workers(user): # {col_name: param}
     conn = db_connect()
     cur = conn.cursor()
     cur.execute("""
@@ -122,31 +182,26 @@ def get_workers(user): # {name: {role: 'Day/Shifter', vacations:'date - date, ..
         ORDER BY name""", 
         (user,))
     rows = cur.fetchall()
-    rows = [dict(row) for row in rows]
-
-    # Transform vacations to interval string 'vacation_start - vacation_end'
-    workers = {} 
-    vacations_dict = defaultdict(list)
-    
-    for row in rows:
-        name = row['name']
-        if name not in workers:
-            workers[name] = {
-                "role": row["role"],
-                "shifts": row["shifts"],
-                "places": row["places"],
-                "vacations": ""
-            }
-
-        if row["vacation_start"] and row["vacation_end"]:
-            start_str = datetime.strptime(row["vacation_start"], "%Y-%m-%d").date().strftime("%d.%m.%y")
-            end_str = datetime.strptime(row["vacation_end"], "%Y-%m-%d").date().strftime("%d.%m.%y")
-            vacations_dict[name].append(f"{start_str} - {end_str}")
-    for name, vac_list in vacations_dict.items():
-        workers[name]["vacations"] = "; ".join(vac_list)
     cur.close()
     conn.close()
-    return workers
+    return rows 
+
+# Get workers with exceptions from SQL(months)
+def get_month_workers(user, month): # {col_name: param}
+    # Query from SQL 
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT name, exceptions, shifts
+        FROM months
+        WHERE username = ?
+            AND month = ?
+        ORDER BY name""", 
+        (user, month))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows 
 
 # Delete worker by name in SQL workers table for current user 
 def delete_worker(username, name):
@@ -218,28 +273,50 @@ def login():
 def account():
     if "user" not in session:
         return redirect(url_for("login"))
+    else:
+        user = session["user"]
 
+    # Transform vacations to interval string 'dd.mm.yyyy(start) - dd.mm.yyyy(end), ...'
+    def tranform_vacations(rows):
+        workers = {} 
+        vacations_dict = defaultdict(list)
+        for row in rows:
+            name = row['name']
+            if name not in workers:
+                workers[name] = {
+                    "role": row["role"],
+                    "shifts": row["shifts"],
+                    "places": row["places"],
+                    "vacations": ""
+                }
+
+            if row["vacation_start"] and row["vacation_end"]:
+                start_str = datetime.strptime(row["vacation_start"], "%Y-%m-%d").date().strftime("%d.%m.%y")
+                end_str = datetime.strptime(row["vacation_end"], "%Y-%m-%d").date().strftime("%d.%m.%y")
+                vacations_dict[name].append(f"{start_str} - {end_str}")
+        for name, vac_list in vacations_dict.items():
+            workers[name]["vacations"] = ", ".join(vac_list)
+        return workers
+    
     # Load workers for template
-    workers = get_workers(session["user"])
+    rows = get_workers(session["user"])
+    workers = tranform_vacations(rows)
 
-    #Load date for month tabs
-    now = datetime.now()
-    months = {
-        'prev_month': calendar.month_name[(now.month - 1) if (now.month - 1) > 0 else 12],
-        'cur_month': calendar.month_name[now.month],
-        'next_month': calendar.month_name[(now.month + 1) if (now.month + 1) < 13 else 1]
-    }
-    years = {
-        'prev_year': now.year if now.month > 1 else now.year - 1,
-        'cur_year': now.year,
-        'next_year': now.year if now.month < 12 else now.year + 1,
-    } 
+    # Load date for month tabs
+    months, years = load_date()
+    month_keys = [f'{years[i]}-{months[i][0]:02d}' for i in months]
+
+    months_workers = {
+        'prev': get_month_workers(user, month_keys[0]),
+        'cur':get_month_workers(user, month_keys[1]),
+        'next':get_month_workers(user, month_keys[2]),}
 
     return render_template("account.html",
                             username=session["user"],
-                            workers=workers,
                             months=months,
-                            years = years)
+                            years = years,
+                            workers=workers,
+                            months_workers = months_workers)
 
 @app.route("/account/workers/add", methods=["POST"])
 def account_add():
@@ -250,7 +327,7 @@ def account_add():
 
     name = data.get("name")
     role = data.get("role")
-    vacations = data.get("vacations", [])
+    vacations = data.get("vacations", []) 
     shifts = data.get("shifts")
     places = data.get("places", [])
 
@@ -258,7 +335,7 @@ def account_add():
         session["user"],
         name,
         role,
-        vacations,
+        vacations, # ["date - date", ...]
         shifts,
         ", ".join(places))
 
@@ -349,7 +426,6 @@ def create():
             for name, text in request.form.items():
                 if name.startswith('name_') and name.endswith(f'_{row['day']}'):
                     row[name] = text  # Save entered text into the correct row with key name_ZONE_day
-        print(table_rows)
         # Store updated table in session
         session['table_rows'] = table_rows
 

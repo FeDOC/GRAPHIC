@@ -502,7 +502,6 @@ if (page === 'account-page') {
 
     const monthsTabs = document.querySelectorAll('.month-tab');
     const monthContents = document.querySelectorAll('.month-tab-content');
-    const workersTable = document.querySelector('.months-container')
 
     // Previous-Current-Next month tab switching
     monthsTabs.forEach(tab => {
@@ -512,9 +511,7 @@ if (page === 'account-page') {
             monthContents.forEach(c => c.classList.remove('active'));
             // activate clicked one tab + content
             tab.classList.add('active');
-            const monthContent = document.getElementById(tab.dataset.tab);
-            monthContent.classList.add('active');
-            monthContent.appendChild(workersTable)
+            document.getElementById(tab.dataset.tab).classList.add('active');
         });
     });
 
