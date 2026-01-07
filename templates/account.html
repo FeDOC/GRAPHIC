@@ -160,14 +160,14 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for row in table_rows %}
+                        {% for row in month_shift_table['cur']['days'] %}
                             <tr class="{% if row.is_weekend %}weekend{% endif %}">
                                 <td>{{ row.day }}</td>
                                 
                                 <!-- Loop through each column (except first) to allow input -->
                                 {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
                                 <td class="editable" data-name="name_{{ column }}_{{ row.day }}">
-                                    {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }}
+                                    <!-- {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }} -->
                                 </td>
                                 {% endfor %}
                             </tr>

@@ -9,17 +9,17 @@ app = Flask(__name__)
 app.config.from_object(Config)
 
 # ---------------------------------------------------------
-# COMMON FUNCTIONS
+# HELPER FUNCTIONS
 # ---------------------------------------------------------
 def load_date():
     now = datetime.now()
-        # month: dict[key: tuple[int, str]] 
+    # months: dict[key: tuple[int, str]] 
     months = { 
         'prev': ((now.month - 1) if (now.month - 1) > 0 else 12, calendar.month_name[(now.month - 1) if (now.month - 1) > 0 else 12]),
         'cur': (now.month, calendar.month_name[now.month]),
         'next': ((now.month + 1) if (now.month + 1) < 13 else 1, calendar.month_name[(now.month + 1) if (now.month + 1) < 13 else 1])
     }
-        # years: dict[key: int]
+    # years: dict[key: int]
     years = {
         'prev': now.year if now.month > 1 else now.year - 1,
         'cur': now.year,
@@ -27,6 +27,13 @@ def load_date():
     } 
     return months, years
 
+def month_days(years, months, current_month):
+    days_in_month = calendar.monthrange(years[current_month], months[current_month][0])[1]
+    days = [
+        {'day': day, 'is_weekend': datetime(years[current_month], months[current_month][0], day).weekday() >= 5}
+        for day in range(1, days_in_month + 1)]
+    return {'days_in_month': days_in_month, 
+            'days': days}
 # ---------------------------------------------------------
 # SQLite DATABASE
 # ---------------------------------------------------------
@@ -107,6 +114,8 @@ def add_worker(user, name, role, vacations, shifts, places):
 
     # Parse vacations string to start and end in date format 
     def parse_vacations(vacations): # ["date - date", ...] -> [(datetime.date, datetime.date), ...]:
+        if vacations == ['']:
+            return [('', '')]
         vacs = [list(map(lambda x: x.strip(), vac.split('-'))) for vac in vacations]
         res = []
         for vac in vacs:
@@ -308,15 +317,22 @@ def account():
 
     months_workers = {
         'prev': get_month_workers(user, month_keys[0]),
-        'cur':get_month_workers(user, month_keys[1]),
-        'next':get_month_workers(user, month_keys[2]),}
-
-    return render_template("account.html",
-                            username=session["user"],
-                            months=months,
-                            years = years,
-                            workers=workers,
-                            months_workers = months_workers)
+        'cur': get_month_workers(user, month_keys[1]),
+        'next': get_month_workers(user, month_keys[2]),}
+    
+    month_shift_table = {
+        'prev': month_days(years, months, 'prev'), # {days_in_month: int, days: [{day: int, weekend: bool}]]
+        'cur': month_days(years, months, 'cur'),
+        'next': month_days(years, months, 'next')}
+    
+    return render_template(
+        "account.html",
+        username=session["user"],
+        months=months,
+        years=years,
+        workers=workers,
+        months_workers=months_workers,
+        month_shift_table=month_shift_table)
 
 @app.route("/account/workers/add", methods=["POST"])
 def account_add():
@@ -370,7 +386,7 @@ def delete():
 
     delete_worker(session["user"], name)
     return {"success": True, "message": "Deleted successfully"}
-
+'''
 # Update rows in month tab
 # @app.route('/account/months/update', methods=['POST'])
 # def update_month():
@@ -386,6 +402,7 @@ def delete():
 #     update_months(session["user"], name, ', '.join(exceptions), shifts, month)
 
 #     return {"success": True}
+'''
 
 @app.route('/logout')
 def logout():
@@ -394,10 +411,7 @@ def logout():
 
 @app.route('/create', methods=['GET', 'POST'])
 def create():
-    # Retrieve stored year and month (or None)
-    year = session.get('year', None) 
-    month = session.get('month', None)
-    days_in_month = session.get('days_in_month', 0)  # Retrieve stored days (default 0)
+    days_in_month = session.get('days_in_month', 0)
     table_rows = session.get('table_rows', [])
 
     if 'generate_table' in request.form:
