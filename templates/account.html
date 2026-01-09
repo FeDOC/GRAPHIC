@@ -60,121 +60,189 @@
                 {{months.next[1]}} {{years.next}}
             </div>
         </div>
-        <div class="month-page-layout">
-            <div class="month-tab-contents">
-                <div class="month-tab-content" id="prevContent">
-                    <div class="month-workers-table-wrapper">
-                        <!-- Table with workers for prev month -->
-                        <table class="month-workers-table">
-                            <thead>
-                                <tr>
-                                    <th></th>
-                                    <th>Name</th>
-                                    <th>Exceptions</th>
-                                    <th>Shifts Number</th>
-                                </tr>
-                            </thead>
-                            <tbody> 
-                                {% for name, exceptions, shifts in months_workers['prev'] %}
-                                <tr>
-                                    <td>
-                                        <button class="edit-btn">Edit</button>
-                                    </td>
-                                    <td>{{ name }}</td>
-                                    <td>{{ exceptions or '' }}</td>
-                                    <td>{{ shifts }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="month-tab-content active" id="currentContent">
-                    <div class="month-workers-table-wrapper">
-                        <!-- Table with workers for cur month -->
-                        <table class="month-workers-table">
-                            <thead>
-                                <tr>
-                                    <th></th>
-                                    <th>Name</th>
-                                    <th>Exceptions</th>
-                                    <th>Shifts Number</th>
-                                </tr>
-                            </thead>
-                            <tbody> 
-                                {% for name, exceptions, shifts in months_workers['cur'] %}
-                                <tr>
-                                    <td>
-                                        <button class="edit-btn">Edit</button>
-                                    </td>
-                                    <td>{{ name }}</td>
-                                    <td>{{ exceptions }}</td>
-                                    <td>{{ shifts }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="month-tab-content" id="nextContent">
-                    <div class="month-workers-table-wrapper">
-                        <!-- Table with workers for next month -->
-                        <table class="month-workers-table">
-                            <thead>
-                                <tr>
-                                    <th></th>
-                                    <th>Name</th>
-                                    <th>Exceptions</th>
-                                    <th>Shifts Number</th>
-                                </tr>
-                            </thead>
-                            <tbody> 
-                                {% for name, exceptions, shifts in months_workers['next'] %}
-                                <tr>
-                                    <td>
-                                        <button class="edit-btn">Edit</button>
-                                    </td>
-                                    <td>{{ name }}</td>
-                                    <td>{{ exceptions }}</td>
-                                    <td>{{ shifts }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <!-- Shifts table -->
-            <div class="month-shift-table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Day</th>
-                            <th>OTVET</th>
-                            <th>DIAGNOS</th>
-                            <th>EXTR</th>
-                            <th>PLAN</th>
-                            <th>GREEN</th>
-                            <th>YELLOW</th>
-                            <th>TORAC</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in month_shift_table['cur']['days'] %}
-                            <tr class="{% if row.is_weekend %}weekend{% endif %}">
-                                <td>{{ row.day }}</td>
-                                
-                                <!-- Loop through each column (except first) to allow input -->
-                                {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
-                                <td class="editable" data-name="name_{{ column }}_{{ row.day }}">
-                                    <!-- {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }} -->
-                                </td>
-                                {% endfor %}
+        <div class="month-tab-contents">
+            <div class="month-tab-content" id="prevContent">
+                <!-- Table with workers for prev month -->
+                <div class="month-workers-table-wrapper">
+                    <table class="month-workers-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Name</th>
+                                <th>Exceptions</th>
+                                <th>Shifts Number</th>
                             </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody> 
+                            {% for name, exceptions, shifts in months_workers['prev'] %}
+                            <tr>
+                                <td>
+                                    <button class="edit-btn">Edit</button>
+                                </td>
+                                <td>{{ name }}</td>
+                                <td>{{ exceptions or '' }}</td>
+                                <td>{{ shifts }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Shifts table and buttons-->
+                <div class="month-shift-table-wrapper-and-buttons">
+                    <div class="month-shift-table-buttons">
+                        <form method="POST" id="save-form">
+                            <button name='save_names' type="submit">Save Names</button>
+                        </form>
+                    </div>
+                    <div class="month-shift-table-wrapper">
+                        <table class="month-shifts-table">
+                            <thead>
+                                <tr>
+                                    <th>Day</th>
+                                    <th>OTVET</th>
+                                    <th>DIAGNOS</th>
+                                    <th>EXTR</th>
+                                    <th>PLAN</th>
+                                    <th>GREEN</th>
+                                    <th>YELLOW</th>
+                                    <th>TORAC</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in month_shift_table['prev']['days'] %}
+                                    <tr class="{% if row.is_weekend %}weekend{% endif %}">
+                                        <td>{{ row.day }}</td>
+                                        <!-- Loop through each column (except first) to allow input -->
+                                        {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
+                                        <td class="editable" data-name="name_{{ column }}_{{ row.day }}">
+                                            <!-- {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }} -->
+                                        </td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
+            <div class="month-tab-content active" id="currentContent">
+                <!-- Table with workers for cur month -->
+                <div class="month-workers-table-wrapper">
+                    <!-- Table with workers for cur month -->
+                    <table class="month-workers-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Name</th>
+                                <th>Exceptions</th>
+                                <th>Shifts Number</th>
+                            </tr>
+                        </thead>
+                        <tbody> 
+                            {% for name, exceptions, shifts in months_workers['cur'] %}
+                            <tr>
+                                <td>
+                                    <button class="edit-btn">Edit</button>
+                                </td>
+                                <td>{{ name }}</td>
+                                <td>{{ exceptions }}</td>
+                                <td>{{ shifts }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Shifts table -->
+                <div class="month-shift-table-wrapper">
+                    <table class="month-shifts-table">
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>OTVET</th>
+                                <th>DIAGNOS</th>
+                                <th>EXTR</th>
+                                <th>PLAN</th>
+                                <th>GREEN</th>
+                                <th>YELLOW</th>
+                                <th>TORAC</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in month_shift_table['cur']['days'] %}
+                                <tr class="{% if row.is_weekend %}weekend{% endif %}">
+                                    <td>{{ row.day }}</td>
+                                    
+                                    <!-- Loop through each column (except first) to allow input -->
+                                    {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
+                                    <td class="editable" data-name="name_{{ column }}_{{ row.day }}">
+                                        <!-- {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }} -->
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="month-tab-content" id="nextContent">
+                <!-- Table with workers for next month -->
+                <div class="month-workers-table-wrapper">
+                    <!-- Table with workers for next month -->
+                    <table class="month-workers-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Name</th>
+                                <th>Exceptions</th>
+                                <th>Shifts Number</th>
+                            </tr>
+                        </thead>
+                        <tbody> 
+                            {% for name, exceptions, shifts in months_workers['next'] %}
+                            <tr>
+                                <td>
+                                    <button class="edit-btn">Edit</button>
+                                </td>
+                                <td>{{ name }}</td>
+                                <td>{{ exceptions }}</td>
+                                <td>{{ shifts }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Shifts table -->
+                <div class="month-shift-table-wrapper">
+                    <table class="month-shifts-table">
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>OTVET</th>
+                                <th>DIAGNOS</th>
+                                <th>EXTR</th>
+                                <th>PLAN</th>
+                                <th>GREEN</th>
+                                <th>YELLOW</th>
+                                <th>TORAC</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in month_shift_table['next']['days'] %}
+                                <tr class="{% if row.is_weekend %}weekend{% endif %}">
+                                    <td>{{ row.day }}</td>
+                                    <!-- Loop through each column (except first) to allow input -->
+                                    {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
+                                    <td class="editable" data-name="name_{{ column }}_{{ row.day }}">
+                                        <!-- {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }} -->
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
         </div>
     </div>
 
