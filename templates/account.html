@@ -74,14 +74,14 @@
                             </tr>
                         </thead>
                         <tbody> 
-                            {% for name, exceptions, shifts in months_workers['prev'] %}
+                            {% for name, values in workers.items() %}
                             <tr>
                                 <td>
                                     <button class="edit-btn">Edit</button>
                                 </td>
                                 <td>{{ name }}</td>
-                                <td>{{ exceptions or '' }}</td>
-                                <td>{{ shifts }}</td>
+                                <td>{{ months_vacations['prev'][name] or '' }}</td>
+                                <td>{{ values['shifts']}}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -125,6 +125,7 @@
                     </div>
                 </div>
             </div>
+           
             <div class="month-tab-content active" id="currentContent">
                 <!-- Table with workers for cur month -->
                 <div class="month-workers-table-wrapper">
@@ -139,14 +140,14 @@
                             </tr>
                         </thead>
                         <tbody> 
-                            {% for name, exceptions, shifts in months_workers['cur'] %}
+                            {% for name, values in workers.items() %}
                             <tr>
                                 <td>
                                     <button class="edit-btn">Edit</button>
                                 </td>
                                 <td>{{ name }}</td>
-                                <td>{{ exceptions }}</td>
-                                <td>{{ shifts }}</td>
+                                <td>{{ months_vacations['cur'][name] or '' }}</td>
+                                <td>{{ values['shifts']}}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -198,14 +199,14 @@
                             </tr>
                         </thead>
                         <tbody> 
-                            {% for name, exceptions, shifts in months_workers['next'] %}
+                            {% for name, values in workers.items() %}
                             <tr>
                                 <td>
                                     <button class="edit-btn">Edit</button>
                                 </td>
                                 <td>{{ name }}</td>
-                                <td>{{ exceptions }}</td>
-                                <td>{{ shifts }}</td>
+                                <td>{{ months_vacations['next'][name] or '' }}</td>
+                                <td>{{ values['shifts']}}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
