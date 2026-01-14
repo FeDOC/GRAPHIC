@@ -406,6 +406,22 @@ def delete():
 #     return {"success": True}
 '''
 
+@app.route("/account/shifts/save", methods=["POST"])
+def add_shifts():
+    if "user" not in session:
+        return {"success": False, "error": "Not logged in"}, 401
+    if 'save_names' in request.form:
+
+        # User submitted names, update table_rows with new values
+        table_rows = session.get('table_rows', [])  # Load table from session
+        
+        for row in table_rows:
+            for name, text in request.form.items():
+                if name.startswith('name_') and name.endswith(f'_{row['day']}'):
+                    row[name] = text  # Save entered text into the correct row with key name_ZONE_day
+        # Store updated table in session
+        session['table_rows'] = table_rows
+
 @app.route('/logout')
 def logout():
     session.clear()
@@ -416,25 +432,7 @@ def create():
     days_in_month = session.get('days_in_month', 0)
     table_rows = session.get('table_rows', [])
 
-    if 'generate_table' in request.form:
-        # User enter year and month 
-        year = int(request.form['year'])
-        month = int(request.form['month'])
-        days_in_month = calendar.monthrange(year, month)[1]
-
-        # Generate fresh table data
-        table_rows = [
-            {'day': day, 'is_weekend': datetime(year, month, day).weekday() >= 5}
-            for day in range(1, days_in_month + 1)
-        ]
-
-        # Store data in session
-        session['year'] = year
-        session['month'] = month
-        session['days_in_month'] = days_in_month
-        session['table_rows'] = table_rows
-
-    elif 'save_names' in request.form:
+    if 'save_names' in request.form:
         # User submitted names, update table_rows with new values
         table_rows = session.get('table_rows', [])  # Load table from session
         

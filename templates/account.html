@@ -87,42 +87,35 @@
                         </tbody>
                     </table>
                 </div>
-                <!-- Shifts table and buttons-->
-                <div class="month-shift-table-wrapper-and-buttons">
-                    <div class="month-shift-table-buttons">
-                        <form method="POST" id="save-form">
-                            <button name='save_names' type="submit">Save Names</button>
-                        </form>
-                    </div>
-                    <div class="month-shift-table-wrapper">
-                        <table class="month-shifts-table">
-                            <thead>
-                                <tr>
-                                    <th>Day</th>
-                                    <th>OTVET</th>
-                                    <th>DIAGNOS</th>
-                                    <th>EXTR</th>
-                                    <th>PLAN</th>
-                                    <th>GREEN</th>
-                                    <th>YELLOW</th>
-                                    <th>TORAC</th>
+                <!-- Shifts table -->
+                <div class="month-shift-table-wrapper">
+                    <table class="month-shifts-table">
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>OTVET</th>
+                                <th>DIAGNOS</th>
+                                <th>EXTR</th>
+                                <th>PLAN</th>
+                                <th>GREEN</th>
+                                <th>YELLOW</th>
+                                <th>TORAC</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in month_shift_table['prev']['days'] %}
+                                <tr class="{% if row.is_weekend %}weekend{% endif %}">
+                                    <td>{{ row.day }}</td>
+                                    <!-- Loop through each column (except first) to allow input -->
+                                    {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
+                                    <td class="editable" data-name="name_{{ column }}_{{ row.day }}">
+                                        <!-- {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }} -->
+                                    </td>
+                                    {% endfor %}
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {% for row in month_shift_table['prev']['days'] %}
-                                    <tr class="{% if row.is_weekend %}weekend{% endif %}">
-                                        <td>{{ row.day }}</td>
-                                        <!-- Loop through each column (except first) to allow input -->
-                                        {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
-                                        <td class="editable" data-name="name_{{ column }}_{{ row.day }}">
-                                            <!-- {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }} -->
-                                        </td>
-                                        {% endfor %}
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
            
@@ -153,37 +146,45 @@
                         </tbody>
                     </table>
                 </div>
-                <!-- Shifts table -->
-                <div class="month-shift-table-wrapper">
-                    <table class="month-shifts-table">
-                        <thead>
-                            <tr>
-                                <th>Day</th>
-                                <th>OTVET</th>
-                                <th>DIAGNOS</th>
-                                <th>EXTR</th>
-                                <th>PLAN</th>
-                                <th>GREEN</th>
-                                <th>YELLOW</th>
-                                <th>TORAC</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in month_shift_table['cur']['days'] %}
-                                <tr class="{% if row.is_weekend %}weekend{% endif %}">
-                                    <td>{{ row.day }}</td>
-                                    
-                                    <!-- Loop through each column (except first) to allow input -->
-                                    {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
-                                    <td class="editable" data-name="name_{{ column }}_{{ row.day }}">
-                                        <!-- {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }} -->
-                                    </td>
-                                    {% endfor %}
+                <!-- Shifts table and buttons -->
+                <div class="month-shift-table-wrapper-and-buttons">
+                    <div class="month-shift-table-buttons">
+                        <form method="POST" id="cur-save-form">
+                            <button name='cur_save_names' type="submit">Save Names</button>
+                        </form>
+                    </div>
+                    <div class="month-shift-table-wrapper">
+                        <table class="month-shifts-table">
+                            <thead>
+                                <tr>
+                                    <th>Day</th>
+                                    <th>OTVET</th>
+                                    <th>DIAGNOS</th>
+                                    <th>EXTR</th>
+                                    <th>PLAN</th>
+                                    <th>GREEN</th>
+                                    <th>YELLOW</th>
+                                    <th>TORAC</th>
                                 </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {% for row in month_shift_table['cur']['days'] %}
+                                    <tr class="{% if row.is_weekend %}weekend{% endif %}">
+                                        <td>{{ row.day }}</td>
+                                        
+                                        <!-- Loop through each column (except first) to allow input -->
+                                        {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
+                                        <td class="cur-editable" data-name="name_{{ column }}_{{ row.day }}">
+                                            <!-- {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }} -->
+                                        </td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                 </div>
+                </div> 
+                
             </div>
             <div class="month-tab-content" id="nextContent">
                 <!-- Table with workers for next month -->

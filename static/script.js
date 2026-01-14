@@ -83,14 +83,23 @@ if (page === 'index-page') {
     });
 
     // Hidden input for each table cell to save filled names  
-    document.getElementById('save-form')?.addEventListener('submit', function() {
-        document.querySelectorAll('.editable').forEach(td => {
+    document.getElementById('cur-save-form')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        this.querySelectorAll('input[type="hidden"]').forEach(i => i.remove());
+        document.querySelectorAll('.cur-editable').forEach(td => {
             const hidden = document.createElement('input');
             hidden.type = 'hidden';
             hidden.name = td.dataset.name;       // e.g., "name_OTVET_1"
             hidden.value = td.textContent.trim();
             this.appendChild(hidden);
         });
+        // collect form data
+        const formData = new FormData(this);
+        fetch(this.action, {
+            method: this.method || "POST",
+            body: formData
+        })
+        .then(res => res.json())   
     });
 }
 
