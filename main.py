@@ -306,7 +306,7 @@ def login():
 
     return render_template("login.html") 
 
-@app.route("/account", methods=["GET"])
+@app.route("/account", methods=["GET", 'POST'])
 def account():
     if "user" not in session:
         return redirect(url_for("login"))
@@ -410,17 +410,17 @@ def delete():
 def add_shifts():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401
-    if 'save_names' in request.form:
-
+    print(request.form)
+    return {"success": True}
         # User submitted names, update table_rows with new values
-        table_rows = session.get('table_rows', [])  # Load table from session
+        #cur_table_rows = session.get('cur_table_rows', [])  # Load table from session
         
-        for row in table_rows:
-            for name, text in request.form.items():
-                if name.startswith('name_') and name.endswith(f'_{row['day']}'):
-                    row[name] = text  # Save entered text into the correct row with key name_ZONE_day
-        # Store updated table in session
-        session['table_rows'] = table_rows
+        # for row in cur_table_rows:
+        #     for name, text in request.form.items():
+        #         if name.startswith('name_') and name.endswith(f'_{row['day']}'):
+        #             row[name] = text  # Save entered text into the correct row with key name_ZONE_day
+        # # Store updated table in session
+        # session['table_rows'] = table_rows
 
 @app.route('/logout')
 def logout():
