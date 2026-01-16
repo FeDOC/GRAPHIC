@@ -170,6 +170,30 @@ def create_months_table():
     conn.close()
 create_months_table()
 
+# Create SQL table (shifts) for dates and zones for names for specified month (prev, cur, next)
+def create_shifts_table():
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS shifts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            name TEXT NOT NULL,
+            month TEXT NOT NULL,
+            filled TEXT NOT NULL,
+            zone TEXT NOT NULL,
+            day INTEGER NOT NULL
+        )
+    """)
+    cur.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS uniq_shift
+        ON shifts (username, month, day, zone)
+    """)
+    # cur.execute('''DROP TABLE shifts''')
+    conn.commit()
+    cur.close()
+    conn.close()
+create_shifts_table()
 # ---------------------------------------------------------
 # DATABASE ACTIONS
 # ---------------------------------------------------------
@@ -206,7 +230,7 @@ def add_worker(user, name, role, vacations, shifts, places):
     conn.close()
 
 # Get all workers from SQL(workers)
-def get_workers(user): # {col_name: param}
+def get_workers(user): # [{col_name: param}]
     conn = db_connect()
     cur = conn.cursor()
     cur.execute("""
@@ -277,7 +301,89 @@ def update_months(username, name, month, exceptions, shifts):
     conn.commit()
     cur.close()
     conn.close()
-    
+
+# Get all workers names from SQL(workers)
+def get_workers_names(user): # [{name: name[str]}]
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT name
+        FROM workers
+        WHERE username = ?
+        ORDER BY name""", 
+        (user,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows 
+
+# Get all shifts from SQL(shifts) for months
+def get_shifts(user): 
+
+    # [{name: name[str], filled: [self/auto], zone: [str], day: [int]}, {}] 
+    # -> {day[int]: {zone[str]: [name, filled]}}
+    def transform_shifts(change):
+        dic = {}
+        for line in change:
+            dic.setdefault(line['day'], {})[line['zone']] = [line['name'], line['filled']] 
+        return dic
+
+    conn = db_connect()
+    cur = conn.cursor()
+    tables = {
+        'prev': [], 
+        'cur': [], 
+        'next': []
+    }
+    cur.execute("""
+        SELECT name, filled, zone, day
+        FROM shifts
+        WHERE username = ?
+            AND month = 'prev'
+        """, 
+        (user,))
+    change = cur.fetchall()
+    tables['prev'] = transform_shifts(change)
+    cur.execute("""
+        SELECT name, filled, zone, day
+        FROM shifts
+        WHERE username = ?
+            AND month = 'cur'
+        """, 
+        (user,))
+    change = cur.fetchall()
+    tables['cur'] = transform_shifts(change)
+    cur.execute("""
+        SELECT name, filled, zone, day
+        FROM shifts
+        WHERE username = ?
+            AND month = 'prev'
+        """, 
+        (user,))
+    change = cur.fetchall()
+    tables['next'] = transform_shifts(change)
+    cur.close()
+    conn.close()
+    return tables 
+
+# Add self filled names to SQL(shifts)
+def add_self_shifts(user, filled_self, month):
+    conn = db_connect()
+    cur = conn.cursor()
+    for day, zones in filled_self.items():
+        for zone, name in zones.items():
+            cur.execute("""
+                INSERT INTO shifts (username, name, month, filled, zone, day)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT (username, month, zone, day)
+                DO UPDATE SET
+                    name = excluded.name,
+                    filled = excluded.filled""", 
+                (user, name, month, 'self', zone, day))
+    conn.commit()
+    cur.close()
+    conn.close()
+
 # --------------------------------------------------
 # ROUTES
 # --------------------------------------------------
@@ -306,7 +412,7 @@ def login():
 
     return render_template("login.html") 
 
-@app.route("/account", methods=["GET", 'POST'])
+@app.route("/account", methods=["GET"])
 def account():
     if "user" not in session:
         return redirect(url_for("login"))
@@ -327,6 +433,7 @@ def account():
         'cur': month_days(years, months, 'cur'),
         'next': month_days(years, months, 'next')}
     
+    shifts_tables = get_shifts(session["user"])
     return render_template(
         "account.html",
         username=session["user"],
@@ -334,7 +441,8 @@ def account():
         years=years,
         workers=workers,
         months_vacations=months_vacations,
-        month_shift_table=month_shift_table)
+        month_shift_table=month_shift_table,
+        shifts_tables = shifts_tables)
 
 @app.route("/account/workers/add", methods=["POST"])
 def account_add():
@@ -406,50 +514,22 @@ def delete():
 #     return {"success": True}
 '''
 
-@app.route("/account/shifts/save", methods=["POST"])
+@app.route("/account/shifts/save_cur", methods=["POST"])
 def add_shifts():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401
-    print(request.form)
+    filled_self = get_shifts(session["user"])['cur']
+    # User submitted names, update SQL (shifts) with new values
+    for zone_day, name in request.form.items():
+        zone, day = zone_day.split('_')
+        filled_self.setdefault(int(day), {})[zone] = name
+    add_self_shifts(session['user'], filled_self, 'cur')
     return {"success": True}
-        # User submitted names, update table_rows with new values
-        #cur_table_rows = session.get('cur_table_rows', [])  # Load table from session
-        
-        # for row in cur_table_rows:
-        #     for name, text in request.form.items():
-        #         if name.startswith('name_') and name.endswith(f'_{row['day']}'):
-        #             row[name] = text  # Save entered text into the correct row with key name_ZONE_day
-        # # Store updated table in session
-        # session['table_rows'] = table_rows
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
-
-@app.route('/create', methods=['GET', 'POST'])
-def create():
-    days_in_month = session.get('days_in_month', 0)
-    table_rows = session.get('table_rows', [])
-
-    if 'save_names' in request.form:
-        # User submitted names, update table_rows with new values
-        table_rows = session.get('table_rows', [])  # Load table from session
-        
-        for row in table_rows:
-            for name, text in request.form.items():
-                if name.startswith('name_') and name.endswith(f'_{row['day']}'):
-                    row[name] = text  # Save entered text into the correct row with key name_ZONE_day
-        # Store updated table in session
-        session['table_rows'] = table_rows
-
-    return render_template(
-        'index.html',
-        year=year,
-        month=month,
-        days_in_month=days_in_month,
-        table_rows=table_rows,
-    )
 
 # API to get names of workers from SQL to use in JS
 @app.route("/api/names")
@@ -457,8 +537,7 @@ def api_names():
     if "user" not in session:
         return {"error": "not authenticated"}, 401
 
-    workers = [dict(row) for row in get_workers(session["user"])]
-    names = [w["name"] for w in workers]
+    names = [obj['name'] for obj in get_workers_names(session["user"])]
     return {"names": names}
 
 # Completely resets page

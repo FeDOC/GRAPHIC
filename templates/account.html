@@ -148,7 +148,7 @@
                 <!-- Shifts table and buttons -->
                 <div class="month-shift-table-wrapper-and-buttons">
                     <div class="month-shift-table-buttons">
-                        <form method="POST" id="cur-save-form">
+                        <form id="cur-save-form">
                             <button name='cur_save_names' type="submit">Save Names</button>
                         </form>
                     </div>
@@ -169,12 +169,19 @@
                             <tbody>
                                 {% for row in month_shift_table['cur']['days'] %}
                                     <tr class="{% if row.is_weekend %}weekend{% endif %}">
-                                        <td>{{ row.day }}</td>
+                                        <td>{{ row['day'] }}</td>
                                         
                                         <!-- Loop through each column (except first) to allow input -->
                                         {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
-                                        <td class="cur-editable" data-name="name_{{ column }}_{{ row.day }}">
-                                            <!-- {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }} -->
+                                        <td class="cur-editable 
+                                        {% if shifts_tables['cur'].get(row.day, {}).get(column, [None, None])[1] == 'self' %}        
+                                            cur-saved    
+                                        {% endif %}" data-name="{{ column }}_{{ row.day }}">
+                                            {% if row['day'] in shifts_tables['cur'] %}
+                                                {% if column in shifts_tables['cur'][row['day']] %}
+                                                    {{ shifts_tables['cur'][row['day']][column][0] }}
+                                                {% endif %}
+                                            {% endif %}
                                         </td>
                                         {% endfor %}
                                     </tr>
