@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, redirect, url_for, flash
+from flask import Flask, render_template, request, session, redirect, url_for, flash, jsonify
 import calendar
 import sqlite3
 from datetime import datetime, date, timedelta
@@ -99,6 +99,22 @@ def list_vacation_days(get_month_workers, user, years, months):
                                                             month_start, month_end)}
     return months_vacations
 
+# Parse vacations string to start and end in date format 
+def parse_vacations(vacations): # ["date - date", ...] -> [(datetime.date, datetime.date), ...]:
+    if not vacations or vacations == ['']:
+        return []
+    
+    res = []
+    for vac in vacations:
+        try:
+            start, end = map(str.strip, vac.split('-'))
+            vac_start = datetime.strptime(start, "%d.%m.%y").date()
+            vac_end = datetime.strptime(end, "%d.%m.%y").date()
+            res.append((vac_start, vac_end))
+        except:
+            raise ValueError("Invalid date format")    
+    return res
+
 # ---------------------------------------------------------
 # SQLite DATABASE
 # ---------------------------------------------------------
@@ -140,18 +156,39 @@ def create_workers_table():
             username TEXT NOT NULL,
             name TEXT NOT NULL,
             role TEXT NOT NULL,
-            vacation_start DATE,
-            vacation_end DATE,
             shifts INTEGER NOT NULL,
             places TEXT NOT NULL
         )
+    """)
+    cur.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS uniq_worker
+        ON workers (username, name)
     """)
     # cur.execute('''DROP TABLE workers''')
     conn.commit()
     cur.close()
     conn.close()
 create_workers_table()
-    
+
+def create_vacations_table():
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS vacations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            worker_id INTEGER NOT NULL,
+            vacation_start DATE NOT NULL,
+            vacation_end DATE NOT NULL,
+            FOREIGN KEY (worker_id)
+                REFERENCES workers(id)
+                ON DELETE CASCADE
+        )
+    """)
+    # cur.execute('''DROP TABLE vacations''')
+    conn.commit()
+    cur.close()
+    conn.close()
+create_vacations_table()
 # Create SQL table (months) for exceptions and N of shifts for specified month
 def create_months_table():
     conn = db_connect()
@@ -165,6 +202,7 @@ def create_months_table():
             exceptions TEXT,
             shifts INTEGER NOT NULL
             )''')
+    # cur.execute('''DROP TABLE months''')
     conn.commit()
     cur.close()
     conn.close()
@@ -194,47 +232,47 @@ def create_shifts_table():
     cur.close()
     conn.close()
 create_shifts_table()
+
 # ---------------------------------------------------------
 # DATABASE ACTIONS
 # ---------------------------------------------------------
 
 # Add worker in SQL(workers)
 def add_worker(user, name, role, vacations, shifts, places):
-
-    # Parse vacations string to start and end in date format 
-    def parse_vacations(vacations): # ["date - date", ...] -> [(datetime.date, datetime.date), ...]:
-        if vacations == ['']:
-            return [('', '')]
-        vacs = [list(map(lambda x: x.strip(), vac.split('-'))) for vac in vacations]
-        res = []
-        for vac in vacs:
-            start, end = vac
-            vac_start = datetime.strptime(start, "%d.%m.%y").date()
-            vac_end = datetime.strptime(end, "%d.%m.%y").date()
-            res.append((vac_start, vac_end))
-        return res
-    
     vacations = parse_vacations(vacations)
 
     # Add to SQL(workers)
     conn = db_connect()
     cur = conn.cursor()
-    for vacation_start, vacation_end in vacations:
-        # Add to workers
+    try:
         cur.execute("""
-            INSERT INTO workers (username, name, role, vacation_start, vacation_end, shifts, places)
-            VALUES (?, ?, ?, ?, ?, ?, ?)""", 
-            (user, name, role, vacation_start, vacation_end, shifts, places))
-    conn.commit()
-    cur.close()
-    conn.close()
+            INSERT INTO workers (username, name, role, shifts, places)
+            VALUES (?, ?, ?, ?, ?)
+        """, (user, name, role, shifts, places))
+        worker_id = cur.lastrowid
+
+        if vacations:
+            cur.executemany("""
+                INSERT INTO vacations (worker_id, vacation_start, vacation_end)
+                VALUES (?, ?, ?)
+                """, 
+                [(worker_id, v_start, v_end)for v_start, v_end in vacations])
+        conn.commit()
+    except ValueError:
+        raise ValueError("Invalid date format")
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
 
 # Get all workers from SQL(workers)
 def get_workers(user): # [{col_name: param}]
     conn = db_connect()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, username, name, role, vacation_start, vacation_end, shifts, places
+        SELECT id, username, name, role, shifts, places
         FROM workers
         WHERE username = ?
         ORDER BY name""", 
@@ -247,18 +285,22 @@ def get_workers(user): # [{col_name: param}]
 # Get worker's vacations and shifts for month from SQL(worker)
 def get_month_workers(user, year_month): 
     # year_month[str] -> [{name: str, vacation_start: date, vacation_end: date, shifts: int}]
+    year, month = map(int, year_month.split('-'))
+    start_date = datetime(year, month, 1).date()
+    end_date = datetime(year, month, calendar.monthrange(year, month)[1]).date()
 
     # Query from SQL 
     conn = db_connect()
     cur = conn.cursor()
     cur.execute("""
         SELECT name, vacation_start, vacation_end, shifts
-        FROM workers
-        WHERE username = ?
-            AND (strftime('%Y-%m', vacation_start) = ? 
-                OR strftime('%Y-%m', vacation_end) = ?)
+        FROM workers w
+            LEFT JOIN vacations ON w.id = worker_id
+        WHERE w.username = ?
+            AND (vacation_start BETWEEN ? AND ? 
+                OR vacation_end BETWEEN ? AND ?)
         ORDER BY name""", 
-        (user, year_month, year_month))
+        (user, start_date, end_date, start_date, end_date))
     rows = cur.fetchall()
     cur.close()
     conn.close()
@@ -278,13 +320,17 @@ def delete_worker(username, name):
 
 # Update worker in worker tab
 def update_worker(username, name, role, vacations, shifts, places):
+    vacations = parse_vacations(vacations)
+
     conn = db_connect()
     cur = conn.cursor()
-    cur.execute('''
-        UPDATE workers
-        SET role = ?, vacations = ?, shifts = ?, places = ?
-        WHERE username = ? AND name = ?
-    ''', (role, vacations, shifts, places, username, name))
+    for vacation_start, vacation_end in vacations:
+        cur.execute('''
+            UPDATE workers
+            SET role = ?, vacation_start = ?, vacation_end = ?, 
+                shifts = ?, places = ?
+            WHERE username = ? AND name = ?
+        ''', (role, vacation_start, vacation_end, shifts, places, username, name))
     conn.commit()
     cur.close()
     conn.close()
@@ -450,7 +496,6 @@ def account_add():
         return {"success": False, "error": "Not logged in"}, 401
 
     data = request.get_json()
-
     name = data.get("name")
     role = data.get("role")
     vacations = data.get("vacations", []) 
@@ -475,12 +520,16 @@ def update_workers():
     data = request.get_json()
     name = data.get("name")
     role = data.get("role")
-    vacations = data.get("vacations")
+    vacations = data.get("vacations", [])
     shifts = data.get("shifts")
-    places = data.get("places")
+    places = data.get("places", [])
 
     # Update worker with same name for current user
-    update_worker(session["user"], name, role, ', '.join(vacations), shifts, ', '.join(places))
+    update_worker(session["user"], 
+                  name, role, 
+                  vacations, 
+                  shifts, 
+                  ', '.join(places))
 
     return {"success": True}
 

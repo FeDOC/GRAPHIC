@@ -32,9 +32,6 @@ if (page === 'account-page') {
     // PEOPLE TAB
     // ----------------------------
 
-        // ----------------------------
-        // ADD WORKER TO TABLE
-        // ----------------------------
     const addBtn = document.getElementById('add-person-btn');
     const tableBody = document.querySelector('#workers-table tbody');
 
@@ -201,8 +198,21 @@ if (page === 'account-page') {
             fetch('/account/workers/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, role, vacations, shifts, places })
-            });
+                body: JSON.stringify({ name, role, shifts, places, vacations })
+            })
+            .then(res => {
+                if (res.status === 409) { // conflict 
+                    alert('Worker is already in table');
+                    throw new Error('Server error')
+                }
+                if (!res.ok) {
+                    return res.text().then(msg => {
+                        throw new Error(msg ||'Server error')
+                    });
+                }
+                return res.json();
+            })
+            .catch(err => alert(err.message));
         });
 
         // Delete button → remove row
@@ -269,7 +279,7 @@ if (page === 'account-page') {
     // Edit cells in row 
     function enterEditMode(row, editBtn, deleteBtn) {
         const cells = row.querySelectorAll('td');
-
+        
         // Action cell
         cells[0].style.width = '7%'
         editBtn.textContent = 'Apply';
@@ -395,6 +405,16 @@ if (page === 'account-page') {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, role, vacations, shifts, places })
+        })
+        .then(res => {
+            if (!res.ok) {
+                return res.text().then(msg => {
+                    throw new Error(msg);
+                }) 
+            }
+        }) 
+        .catch(err => {
+            alert(err.message)
         });
     }
 
