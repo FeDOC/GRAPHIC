@@ -38,24 +38,24 @@ def month_days(years, months, current_month):
             'days': days}
 
 # Transform vacations to interval string 'dd.mm.yyyy(start) - dd.mm.yyyy(end), ...'
-def tranform_vacations(rows):
+def transform_vacations(rows):
     workers = {} #{name: {role: str, shifts: int, places: str, vacations: str}}
     vacations_dict = defaultdict(list)
+    places_dict = defaultdict(list)
     for row in rows:
         name = row['name']
-        if name not in workers:
-            workers[name] = {
-                "role": row["role"],
-                "shifts": row["shifts"],
-                "places": row["places"],
-                "vacations": ""
-            }
-        if row["vacation_start"] and row["vacation_end"]:
-            start_str = datetime.strptime(row["vacation_start"], "%Y-%m-%d").date().strftime("%d.%m.%y")
-            end_str = datetime.strptime(row["vacation_end"], "%Y-%m-%d").date().strftime("%d.%m.%y")
-            vacations_dict[name].append(f"{start_str} - {end_str}")
-    for name, vac_list in vacations_dict.items():
-        workers[name]["vacations"] = ", ".join(vac_list)
+        workers[name] = {
+            "role": row["role"],
+            "shifts": row["shifts"],
+            "places": ", ".join(row['places']),
+            "vacations": ""
+        }
+        vacs = []
+        for interv in row['vacations']:
+            start_str = datetime.strptime(interv["vacation_start"], "%Y-%m-%d").date().strftime("%d.%m.%y")
+            end_str = datetime.strptime(interv["vacation_end"], "%Y-%m-%d").date().strftime("%d.%m.%y")
+            vacs.append(f"{start_str} - {end_str}")
+        workers[name]['vacations'] = ", ".join(vacs)
     return workers
 
 # Days of vacations for worker for month tab
@@ -81,9 +81,9 @@ def list_vacation_days(get_month_workers, user, years, months):
         days = [] 
         cur = start 
         while cur <= end: 
-            days.append(f'{cur.day}') 
+            days.append(cur.day) 
             cur += timedelta(days=1) 
-        return ", ".join(days)
+        return days
     
     year_month = {}
     months_vacations = {}
@@ -95,8 +95,8 @@ def list_vacation_days(get_month_workers, user, years, months):
         for line in raw:
             vac_start = date.fromisoformat(line['vacation_start'])
             vac_end = date.fromisoformat(line['vacation_end'])
-            months_vacations[i] = {line['name']: vacation_intervals_in_month(vac_start, vac_end,
-                                                            month_start, month_end)}
+            months_vacations[i].setdefault(line['name'], []).extend(vacation_intervals_in_month(vac_start, vac_end,
+                                                            month_start, month_end))
     return months_vacations
 
 # Parse vacations string to start and end in date format 
@@ -115,12 +115,21 @@ def parse_vacations(vacations): # ["date - date", ...] -> [(datetime.date, datet
             raise ValueError("Invalid date format")    
     return res
 
+@app.errorhandler(ValueError)
+def _(e):
+    return jsonify(ok=False, error=str(e)), 400
+
+@app.errorhandler(sqlite3.IntegrityError)
+def _(e):
+    return jsonify(ok=False, error=str(e)), 409
+
 # ---------------------------------------------------------
 # SQLite DATABASE
 # ---------------------------------------------------------
 
 def db_connect():
     conn = sqlite3.connect("database.db", check_same_thread=False)
+    conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row  # Dict-like rows
     return conn
 
@@ -156,8 +165,7 @@ def create_workers_table():
             username TEXT NOT NULL,
             name TEXT NOT NULL,
             role TEXT NOT NULL,
-            shifts INTEGER NOT NULL,
-            places TEXT NOT NULL
+            shifts INTEGER NOT NULL
         )
     """)
     cur.execute("""
@@ -189,24 +197,26 @@ def create_vacations_table():
     cur.close()
     conn.close()
 create_vacations_table()
-# Create SQL table (months) for exceptions and N of shifts for specified month
-def create_months_table():
+
+def create_places_table():
     conn = db_connect()
     cur = conn.cursor()
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS months (
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS places (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL,
-            name TEXT NOT NULL,
-            month TEXT NOT NULL,
-            exceptions TEXT,
-            shifts INTEGER NOT NULL
-            )''')
-    # cur.execute('''DROP TABLE months''')
+            worker_id INTEGER NOT NULL,
+            place TEXT NOT NULL,
+            FOREIGN KEY (worker_id)
+                REFERENCES workers(id)
+                ON DELETE CASCADE
+            UNIQUE (worker_id, place)
+        )
+    """)
+    # cur.execute('''DROP TABLE places''')
     conn.commit()
     cur.close()
     conn.close()
-create_months_table()
+create_places_table()
 
 # Create SQL table (shifts) for dates and zones for names for specified month (prev, cur, next)
 def create_shifts_table():
@@ -215,8 +225,7 @@ def create_shifts_table():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS shifts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL,
-            name TEXT NOT NULL,
+            worker_id INTEGER NOT NULL,
             month TEXT NOT NULL,
             filled TEXT NOT NULL,
             zone TEXT NOT NULL,
@@ -225,7 +234,7 @@ def create_shifts_table():
     """)
     cur.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS uniq_shift
-        ON shifts (username, month, day, zone)
+        ON shifts (worker_id, month, day, zone)
     """)
     # cur.execute('''DROP TABLE shifts''')
     conn.commit()
@@ -239,6 +248,7 @@ create_shifts_table()
 
 # Add worker in SQL(workers)
 def add_worker(user, name, role, vacations, shifts, places):
+    
     vacations = parse_vacations(vacations)
 
     # Add to SQL(workers)
@@ -246,23 +256,27 @@ def add_worker(user, name, role, vacations, shifts, places):
     cur = conn.cursor()
     try:
         cur.execute("""
-            INSERT INTO workers (username, name, role, shifts, places)
-            VALUES (?, ?, ?, ?, ?)
-        """, (user, name, role, shifts, places))
+            INSERT INTO workers (username, name, role, shifts)
+            VALUES (?, ?, ?, ?)
+        """, (user, name, role, shifts))
         worker_id = cur.lastrowid
+        cur.executemany(
+            "INSERT OR IGNORE INTO places (worker_id, place) VALUES (?, ?)",
+            [(worker_id, place) for place in places.split(', ')]
+        )
 
         if vacations:
             cur.executemany("""
                 INSERT INTO vacations (worker_id, vacation_start, vacation_end)
                 VALUES (?, ?, ?)
                 """, 
-                [(worker_id, v_start, v_end)for v_start, v_end in vacations])
+                [(worker_id, v_start, v_end) for v_start, v_end in vacations])
         conn.commit()
     except ValueError:
         raise ValueError("Invalid date format")
     except sqlite3.IntegrityError:
         conn.rollback()
-        raise
+        raise 
     finally:
         cur.close()
         conn.close()
@@ -272,12 +286,38 @@ def get_workers(user): # [{col_name: param}]
     conn = db_connect()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, username, name, role, shifts, places
+        SELECT id, name, role, shifts
         FROM workers
         WHERE username = ?
-        ORDER BY name""", 
-        (user,))
-    rows = cur.fetchall()
+    """, (user,))
+    workers = cur.fetchall()
+    rows = []  
+    for worker in workers:
+        worker_id, name, role, shifts = worker
+
+        cur.execute("""
+            SELECT place
+            FROM places
+            WHERE worker_id = ?
+            """, (worker_id,))
+        places = [row[0] for row in cur.fetchall()]
+
+        cur.execute("""
+            SELECT vacation_start, vacation_end
+            FROM vacations
+            WHERE worker_id = ?
+            ORDER BY vacation_start
+        """, (worker_id,))
+        vacations = cur.fetchall()
+
+        rows.append({
+            'worker_id': worker_id,
+            "name": name,
+            "role": role,
+            "shifts": shifts,
+            "places": places,
+            "vacations": vacations
+        })    
     cur.close()
     conn.close()
     return rows 
@@ -324,16 +364,40 @@ def update_worker(username, name, role, vacations, shifts, places):
 
     conn = db_connect()
     cur = conn.cursor()
-    for vacation_start, vacation_end in vacations:
-        cur.execute('''
-            UPDATE workers
-            SET role = ?, vacation_start = ?, vacation_end = ?, 
-                shifts = ?, places = ?
+    try:
+        cur.execute("""
+            UPDATE workers 
+                SET role = ?, shifts = ?, places = ?
             WHERE username = ? AND name = ?
-        ''', (role, vacation_start, vacation_end, shifts, places, username, name))
-    conn.commit()
-    cur.close()
-    conn.close()
+        """, (role, shifts, places, username, name))
+        
+        cur.execute("""
+            SELECT id FROM workers
+            WHERE username = ? AND name = ?
+        """, (username, name))
+        
+        row = cur.fetchone()
+        worker_id = row[0]
+
+        cur.executemany(""" 
+            UPDATE places 
+                SET place = ?
+            WHERE worker_id = ?
+        """, [(place, worker_id) for place in places])
+
+        if vacations:
+            cur.executemany("""
+                UPDATE vacations
+                    SET vacation_start = ?, vacation_end = ?
+                WHERE worker_id = ?
+                """, 
+                [(v_start, v_end, worker_id) for v_start, v_end in vacations])
+        conn.commit()
+    except ValueError:
+        raise ValueError("Invalid date format")
+    finally:
+        cur.close()
+        conn.close()
 
 # Update worker in month tab
 def update_months(username, name, month, exceptions, shifts):
@@ -383,7 +447,8 @@ def get_shifts(user):
     }
     cur.execute("""
         SELECT name, filled, zone, day
-        FROM shifts
+        FROM shifts s
+            LEFT JOIN workers w ON s.worker_id = w.id
         WHERE username = ?
             AND month = 'prev'
         """, 
@@ -392,7 +457,8 @@ def get_shifts(user):
     tables['prev'] = transform_shifts(change)
     cur.execute("""
         SELECT name, filled, zone, day
-        FROM shifts
+        FROM shifts s
+            LEFT JOIN workers w ON s.worker_id = w.id 
         WHERE username = ?
             AND month = 'cur'
         """, 
@@ -401,7 +467,8 @@ def get_shifts(user):
     tables['cur'] = transform_shifts(change)
     cur.execute("""
         SELECT name, filled, zone, day
-        FROM shifts
+        FROM shifts s
+            LEFT JOIN workers w ON s.worker_id = w.id
         WHERE username = ?
             AND month = 'prev'
         """, 
@@ -418,18 +485,27 @@ def add_self_shifts(user, filled_self, month):
     cur = conn.cursor()
     for day, zones in filled_self.items():
         for zone, name in zones.items():
+            cur.execute(''' 
+                SELECT id FROM workers
+                WHERE username = ? AND name = ?
+            ''', (user, name))
+            row = cur.fetchone()
+            worker_id = row[0]
             cur.execute("""
-                INSERT INTO shifts (username, name, month, filled, zone, day)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT (username, month, zone, day)
+                INSERT INTO shifts (worker_id, month, filled, zone, day)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT (worker_id, month, zone, day)
                 DO UPDATE SET
-                    name = excluded.name,
-                    filled = excluded.filled""", 
-                (user, name, month, 'self', zone, day))
+                    worker_id = excluded.worker_id
+            """, 
+                (worker_id, month, 'self', zone, day))
     conn.commit()
     cur.close()
     conn.close()
 
+# Add generated names to SQL(shifts)
+def add_self_shifts(user, filled_self, month):
+    pass
 # --------------------------------------------------
 # ROUTES
 # --------------------------------------------------
@@ -467,7 +543,7 @@ def account():
     
     # Load workers for template
     rows = get_workers(session["user"])
-    workers = tranform_vacations(rows)
+    workers = transform_vacations(rows)
 
     # Load date for month tabs
     months, years = load_date()
@@ -574,6 +650,11 @@ def add_shifts():
         filled_self.setdefault(int(day), {})[zone] = name
     add_self_shifts(session['user'], filled_self, 'cur')
     return {"success": True}
+
+# Generate shifts table
+@app.route("/account/shifts/generate_cur", methods=["POST"])
+def add_shifts():
+    pass
 
 @app.route('/logout')
 def logout():

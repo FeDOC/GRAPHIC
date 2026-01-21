@@ -80,7 +80,9 @@
                                     <button class="edit-btn">Edit</button>
                                 </td>
                                 <td>{{ name }}</td>
-                                <td>{{ months_vacations['prev'][name] or '' }}</td>
+                                <td>{{ months_vacations['prev'][name] | join(', ') 
+                                        if months_vacations['prev'][name] 
+                                        else '' }}</td>
                                 <td>{{ values['shifts']}}</td>
                             </tr>
                             {% endfor %}
@@ -138,7 +140,9 @@
                                     <button class="edit-btn">Edit</button>
                                 </td>
                                 <td>{{ name }}</td>
-                                <td>{{ months_vacations['cur'][name] or '' }}</td>
+                                <td>{{ months_vacations['cur'][name] | join(', ') 
+                                        if months_vacations['cur'][name] 
+                                        else '' }}</td>
                                 <td>{{ values['shifts']}}</td>
                             </tr>
                             {% endfor %}
@@ -149,7 +153,10 @@
                 <div class="month-shift-table-wrapper-and-buttons">
                     <div class="month-shift-table-buttons">
                         <form id="cur-save-form">
-                            <button name='cur_save_names' type="submit">Save Names</button>
+                            <button name='cur-save-names' type="submit">Save Names</button>
+                        </form>
+                        <form id="cur-generate-form">
+                            <button name='cur-generate' type="submit">Generate Table</button>
                         </form>
                     </div>
                     <div class="month-shift-table-wrapper">
@@ -212,7 +219,9 @@
                                     <button class="edit-btn">Edit</button>
                                 </td>
                                 <td>{{ name }}</td>
-                                <td>{{ months_vacations['next'][name] or '' }}</td>
+                                <td>{{ months_vacations['next'][name] | join(', ') 
+                                        if months_vacations['next'][name] 
+                                        else '' }}</td>
                                 <td>{{ values['shifts']}}</td>
                             </tr>
                             {% endfor %}

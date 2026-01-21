@@ -200,19 +200,17 @@ if (page === 'account-page') {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, role, shifts, places, vacations })
             })
-            .then(res => {
-                if (res.status === 409) { // conflict 
-                    alert('Worker is already in table');
-                    throw new Error('Server error')
+            .then(res =>
+                res.json().then(body => ({ res, body }))
+            )
+            .then(({ res, body }) => {
+                if (!res.ok || body.ok === false) {
+                    alert(body.error || "Server error");
+                    deleteBtn.click();
+                    return;
                 }
-                if (!res.ok) {
-                    return res.text().then(msg => {
-                        throw new Error(msg ||'Server error')
-                    });
-                }
-                return res.json();
-            })
-            .catch(err => alert(err.message));
+                console.log(body.data);
+            });
         });
 
         // Delete button → remove row
@@ -617,5 +615,9 @@ if (page === 'account-page') {
                 });
             }
         });
+
+        document.getElementById('cur-generate-form')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+        })
     });
 };

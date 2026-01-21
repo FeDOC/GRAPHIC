@@ -204,6 +204,7 @@ body {
 .month-shift-table-buttons {
     display: flex;
     justify-content: center;
+    gap: 10px;
 }
 
 .month-workers-table-wrapper {
