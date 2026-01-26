@@ -475,7 +475,7 @@ if (page === 'account-page') {
         shiftsInput.type = 'number';
         shiftsInput.min = 0;
         shiftsInput.style.width = '40%';
-        shiftsInput.value = parseInt(cells[3].textContent) || 0;
+        shiftsInput.value = parseInt(cells[3].textContent);
         cells[3].style.width = '8%';
         cells[3].textContent = '';
         cells[3].appendChild(shiftsInput);
@@ -484,7 +484,6 @@ if (page === 'account-page') {
     function applyMonthRow(row, editBtn) {
         const cells = row.querySelectorAll('td');
 
-        const name = cells[1].textContent;
         const exceptions = cells[2].querySelector('input').value.split(',').map(x => x.trim());
         const shifts = parseInt(cells[3].querySelector('input').value) || 0;
 
@@ -618,6 +617,9 @@ if (page === 'account-page') {
 
         document.getElementById('cur-generate-form')?.addEventListener('submit', function(e) {
             e.preventDefault();
-        })
+            fetch('/account/shifts/generate_cur', {
+                method: 'POST'
+            })
+        });
     });
 };

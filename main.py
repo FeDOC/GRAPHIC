@@ -28,6 +28,7 @@ def load_date():
         'next': now.year if now.month < 12 else now.year + 1,
     } 
     return months, years
+loaded_date = load_date()
 
 def month_days(years, months, current_month):
     days_in_month = calendar.monthrange(years[current_month], months[current_month][0])[1]
@@ -503,8 +504,38 @@ def add_self_shifts(user, filled_self, month):
     cur.close()
     conn.close()
 
+# Generate cur shifts
+def get_places_names(user): #{Zone:{name:{shifts: int, role: str}}}
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT DISTINCT place
+        FROM places p
+            LEFT JOIN workers w ON p.worker_id = w.id 
+        WHERE username = ?
+        """, (user, ))
+    places = [place['place'] for place in cur.fetchall()]
+    zones = {}
+    for place in places:
+        cur.execute("""
+            SELECT name, role, shifts
+            FROM places p
+                LEFT JOIN workers w ON p.worker_id = w.id 
+            WHERE username = ?
+                AND place = ?
+            """, (user, place))
+        rows = cur.fetchall()
+        zones[place] = {}
+        for row in rows:
+            zones[place][row['name']] = {'role': row['role'],
+                                'shifts': row['shifts']}
+    print(zones)
+    cur.close()
+    conn.close()
+    return zones
+    
 # Add generated names to SQL(shifts)
-def add_self_shifts(user, filled_self, month):
+def add_auto_shifts(user, filled_self, month):
     pass
 # --------------------------------------------------
 # ROUTES
@@ -546,7 +577,7 @@ def account():
     workers = transform_vacations(rows)
 
     # Load date for month tabs
-    months, years = load_date()
+    months, years = loaded_date
 
     months_vacations = list_vacation_days(get_month_workers, user, years, months)
     
@@ -639,6 +670,7 @@ def delete():
 #     return {"success": True}
 '''
 
+# Save names filled in cur table to SQL(shifs)
 @app.route("/account/shifts/save_cur", methods=["POST"])
 def add_shifts():
     if "user" not in session:
@@ -651,10 +683,30 @@ def add_shifts():
     add_self_shifts(session['user'], filled_self, 'cur')
     return {"success": True}
 
-# Generate shifts table
-@app.route("/account/shifts/generate_cur", methods=["POST"])
-def add_shifts():
+# Clear generated names in cur month 
+@app.route("/account/shifts/clear_cur_generated", methods=["POST"])
+def clear_cur_generated():
     pass
+
+# Clear all names in cur month 
+@app.route("/account/shifts/clear_cur_all", methods=["POST"])
+def clear_cur_all():
+    pass
+
+# Generate shifts table in cur month 
+@app.route("/account/shifts/generate_cur", methods=["POST"])
+def generate_cur_shifts():
+    if "user" not in session:
+        return {"success": False, "error": "Not logged in"}, 401
+    months, years = loaded_date
+    days_in_month = month_days(years, months, 'cur')['days_in_month']
+    zones_info = get_places_names(session["user"])
+    otv_candidates = zones_info['OTV'].keys() 
+    for day in range(1, days_in_month + 1):
+        candidates = []
+        for worker in otv_candidates:
+            pass
+    return {"success": True}
 
 @app.route('/logout')
 def logout():

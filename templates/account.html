@@ -67,7 +67,6 @@
                     <table class="month-workers-table">
                         <thead>
                             <tr>
-                                <th></th>
                                 <th>Name</th>
                                 <th>Exceptions</th>
                                 <th>Shifts Number</th>
@@ -76,9 +75,6 @@
                         <tbody> 
                             {% for name, values in workers.items() %}
                             <tr>
-                                <td>
-                                    <button class="edit-btn">Edit</button>
-                                </td>
                                 <td>{{ name }}</td>
                                 <td>{{ months_vacations['prev'][name] | join(', ') 
                                         if months_vacations['prev'][name] 
@@ -121,8 +117,15 @@
                 </div>
             </div> 
             <div class="month-tab-content active" id="currentContent">
+                
                 <!-- Table with workers for cur month -->
-                <div class="month-workers-table-wrapper">
+                <div class="month-workers-table-wrapper-and-button">
+                    <div class="month-workers-table-button">
+                        <form id="cur-workers-save-form">
+                            <button name='cur-workers-save-names' type="submit">Save Names</button>
+                        </form>
+                    </div>
+                    
                     <!-- Table with workers for cur month -->
                     <table class="month-workers-table">
                         <thead>
@@ -157,6 +160,12 @@
                         </form>
                         <form id="cur-generate-form">
                             <button name='cur-generate' type="submit">Generate Table</button>
+                        </form>
+                        <form id="cur-clear-generated-form">
+                            <button name='cur-generated-clear' type="submit">Clear Generated</button>
+                        </form>
+                        <form id="cur-clear-all-form">
+                            <button name='cur-clear-all' type="submit">Clear All</button>
                         </form>
                     </div>
                     <div class="month-shift-table-wrapper">
