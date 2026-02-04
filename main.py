@@ -243,6 +243,30 @@ def create_shifts_table():
     conn.close()
 create_shifts_table()
 
+# Create SQL table (months) for cur and next months with exceptions and shifts
+def create_months_table():
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS months (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            worker_id INTEGER NOT NULL,
+            month TEXT NOT NULL,
+            exceptions INTEGER NOT NULL,
+            shifts INTEGER NOT NULL,
+            FOREIGN KEY (worker_id)
+                REFERENCES workers(id)
+                ON DELETE CASCADE
+            UNIQUE (worker_id)
+        )
+    """)
+    # cur.execute('''DROP TABLE IF EXISTS months''')
+    conn.commit()
+    cur.close()
+    conn.close()
+create_months_table()
+
+
 # ---------------------------------------------------------
 # DATABASE ACTIONS
 # ---------------------------------------------------------
@@ -498,8 +522,37 @@ def add_self_shifts(user, filled_self, month):
                 ON CONFLICT (worker_id, month, zone, day)
                 DO UPDATE SET
                     worker_id = excluded.worker_id
-            """, 
-                (worker_id, month, 'self', zone, day))
+            """, (worker_id, month, 'self', zone, day))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+# Delete previous user data and add edited worker's exceptions and shifts to SQL(months)
+def add_months_workers(user, month, data):
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute('''
+        DELETE FROM months
+        WHERE worker_id IN (
+            SELECT id FROM workers WHERE username = ?)
+    ''', (user,))
+    for name in data.keys():
+        exceptions = [int(x) 
+                      for x in data[name]['exceptions'].split(',') 
+                      if x.strip() != ''] # List[int]
+        shifts = data[name]['shifts']
+        block = [(name, month, ex, shifts) for ex in exceptions]
+        if block:
+            cur.executemany('''
+                INSERT INTO months(worker_id, month, exceptions, shifts)
+                VALUES (
+                    (SELECT id FROM workers WHERE name = ?), ?, ?, ?
+                )
+                ON CONFLICT (worker_id)
+                DO UPDATE SET
+                    exceptions = EXCLUDED.exceptions,
+                    shifts = EXCLUDED.shifts
+            ''', block)
     conn.commit()
     cur.close()
     conn.close()
@@ -528,7 +581,7 @@ def get_places_names(user): #{Zone:{name:{shifts: int, role: str}}}
         zones[place] = {}
         for row in rows:
             zones[place][row['name']] = {'role': row['role'],
-                                'shifts': row['shifts']}
+                                        'shifts': row['shifts']}
     print(zones)
     cur.close()
     conn.close()
@@ -537,6 +590,7 @@ def get_places_names(user): #{Zone:{name:{shifts: int, role: str}}}
 # Add generated names to SQL(shifts)
 def add_auto_shifts(user, filled_self, month):
     pass
+
 # --------------------------------------------------
 # ROUTES
 # --------------------------------------------------
@@ -670,7 +724,7 @@ def delete():
 #     return {"success": True}
 '''
 
-# Save names filled in cur table to SQL(shifs)
+# Save names filled in cur table to SQL(shifts)
 @app.route("/account/shifts/save_cur", methods=["POST"])
 def add_shifts():
     if "user" not in session:
@@ -682,6 +736,16 @@ def add_shifts():
         filled_self.setdefault(int(day), {})[zone] = name
     add_self_shifts(session['user'], filled_self, 'cur')
     return {"success": True}
+
+# Save names with exceptions and shifts from cur month to SQL (months) 
+@app.route("/account/months/save_cur", methods=["POST"])
+def save_cur_month_workers():
+    if "user" not in session:
+        return {"success": False, "error": "Not logged in"}, 401
+    data = request.get_json()
+    print(data)
+    add_months_workers(session["user"], 'cur', data)
+    return data
 
 # Clear generated names in cur month 
 @app.route("/account/shifts/clear_cur_generated", methods=["POST"])
@@ -698,6 +762,7 @@ def clear_cur_all():
 def generate_cur_shifts():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401
+    
     months, years = loaded_date
     days_in_month = month_days(years, months, 'cur')['days_in_month']
     zones_info = get_places_names(session["user"])

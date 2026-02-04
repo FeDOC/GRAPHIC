@@ -501,7 +501,44 @@ if (page === 'account-page') {
         // });
     }
     
-    document.querySelectorAll('#month-workers-table tbody tr').forEach(MonthEditableCells);
+    // Collects inputs in shifts table (booked days) 
+    function collectEditedCells(form) {
+        form.querySelectorAll('input[type="hidden"]').forEach(i => i.remove());
+        const editedTds = [];
+        document.querySelectorAll('.cur-editable').forEach(td => {
+            const value = td.textContent.trim();
+            if (value !== "") {
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = td.dataset.name;
+                hidden.value = value;
+                form.appendChild(hidden);
+                editedTds.push(td);
+            }
+        });
+        return editedTds;
+    }
+
+    // Collects exceptions and shifts from cur month
+    function exceptionsShifts() {
+        const table = document.querySelector('.month-workers-table.cur');
+        const rows = table.tBodies[0].rows; // skip header
+        const result = {}
+        Array.from(rows).forEach(row => {
+            const cells = row.cells;
+            const name = cells[1].innerText.trim();
+            const exceptions = cells[2].innerText.trim();
+            const shifts = parseInt(cells[3].innerText.trim(), 10);
+            result[name] = {exceptions: exceptions, 
+                            shifts: shifts
+            }
+        });
+        console.log(result)
+        return result
+    }
+
+    // Apply editable rows function to cur month workers table
+    document.querySelectorAll('.month-workers-table.cur tbody tr').forEach(MonthEditableCells);
 
         // ----------------------------
         // SHIFTS TABLE
@@ -581,32 +618,27 @@ if (page === 'account-page') {
             });
         });
 
+        document.getElementById('cur-workers-save-form')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            fetch('/account/months/save_cur', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(exceptionsShifts())
+            });
+        });
+
         // Hidden input for each table cell to save filled names  
         document.getElementById('cur-save-form')?.addEventListener('submit', function(e) {
             e.preventDefault();
-            this.querySelectorAll('input[type="hidden"]').forEach(i => i.remove());
-            const editedTds = [];
-            document.querySelectorAll('.cur-editable').forEach(td => {
-                const value = td.textContent.trim();
-                // only cells where user wrote something
-                if (value !== "") {
-                    const hidden = document.createElement('input');
-                    hidden.type = 'hidden';
-                    hidden.name = td.dataset.name;
-                    hidden.value = value;
-                    this.appendChild(hidden);
-                    editedTds.push(td);
-                }
-            });
+            const editedTds = collectEditedCells(this);
             if (editedTds.length === 0) {
                 return; // nothing to save
             }
             // otherwise collect form data
             else {
-                const formData = new FormData(this);
                 fetch('/account/shifts/save_cur', {
                     method: "POST",
-                    body: formData
+                    body: new FormData(this)
                 })
                 .then(res => res.json())   
                 .then(() => {
