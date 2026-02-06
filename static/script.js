@@ -139,7 +139,7 @@ if (page === 'account-page') {
         container_checkbox.style.gap = "10px";
         container_checkbox.style.alignItems = 'center';
         container_checkbox.style.justifyContent = 'center';
-        ['OTV','DIAGN','EXTR','PLAN','GREEN','YELLOW', 'TORAC'].forEach(zone => {
+        ['OTVET','DIAGN','EXTR','PLAN','GREEN','YELLOW', 'TORAC'].forEach(zone => {
             const item = document.createElement('div');
             item.style.display = 'flex';
             item.style.flexDirection = "column";
@@ -355,7 +355,7 @@ if (page === 'account-page') {
         placeContainer.style.display = 'flex';
         placeContainer.style.gap = '10px';
         const originalPlaces = cells[5].textContent.split(',').map(x => x.trim());
-        ['OTV','DIAGN','EXTR','PLAN','GREEN','YELLOW','TORAC'].forEach(zone => {
+        ['OTVET','DIAGN','EXTR','PLAN','GREEN','YELLOW','TORAC'].forEach(zone => {
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.value = zone;
@@ -650,7 +650,7 @@ if (page === 'account-page') {
         document.getElementById('cur-generate-form')?.addEventListener('submit', function(e) {
             e.preventDefault();
             fetch('/account/shifts/generate_cur', {
-                method: 'POST'
+                method: 'POST' 
             })
         });
     });
