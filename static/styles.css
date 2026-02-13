@@ -253,7 +253,7 @@ body {
     flex: 1;         /* Shift table takes the rest */
 }
 
-.cur-saved {
+.booked {
     background-color: #76b471; /* soft green */
     transition: background-color 0.3s ease;
 }

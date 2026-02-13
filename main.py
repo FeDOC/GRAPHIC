@@ -792,85 +792,103 @@ def save_cur_month_workers():
     return data
 
 # Clear generated names in cur month 
-@app.route("/account/shifts/clear_cur_generated", methods=["POST"])
-def clear_cur_generated():
-    pass
-
-# Clear all names in cur month 
-@app.route("/account/shifts/clear_cur_all", methods=["POST"])
-def clear_cur_all():
-    pass
-
-# Generate shifts table in cur month 
-@app.route("/account/shifts/generate_cur", methods=["POST"])
-def generate_cur_shifts():
+@app.route("/account/shifts/clear_generated", methods=["POST"])
+def clear_generated():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401
     
-    graphic = {}
-    months, years = loaded_date
-    days_in_month = month_days(years, months, 'cur')['days_in_month']
-    zones_info = get_places_names(session["user"]) # {Zone:{name:{shifts: int, role: str}}}
-    workers_info = generation_info(session["user"], 'cur') # {name: {exceptions: set(), shifts: int}}
-    zones_candidates = {zone: zones_info[zone] for zone in zones_info.keys()} # {zone: [names]}
-    worker_unavail = {
-        name: workers_info[name]['exceptions'] 
-        for name in zones_candidates['OTVET']
-    }
 
-    # Make booking
-    for zone in zones_info.keys():    
-        rows = get_self_shifts(session["user"], 'cur', zone)
+
+# Clear all names in cur month 
+@app.route("/account/shifts/clear_all", methods=["POST"])
+def shifts_clear_all():
+    pass
+
+# Generate shifts table in cur month 
+@app.route("/account/shifts/generate", methods=["POST"])
+def generate_shifts():
+    if "user" not in session:
+        return {"success": False, "error": "Not logged in"}, 401
+    month = request.get_json().get('month')
+    months, years = loaded_date
+    days_in_month = month_days(years, months, month)['days_in_month']
+    zones_info = get_places_names(session["user"]) # {Zone:{name:{shifts: int, role: str}}}
+    workers_info = generation_info(session["user"], month) # {name: {exceptions: set(), shifts: int}}
+    graphic = {}
+    for day in range(1, days_in_month + 1):
+        graphic[day] = {}
+        for zone in zones_info.keys():
+            graphic[day][zone] = None
+    # To add rest days to exceptions 
+    worker_unavail = { # {name: set(exceptions)} 
+        name: info['exceptions'] 
+        for name, info in workers_info.items()
+    }
+    shifts_used = {} # To track shifts after booking
+    zone_heaps = {} # Heap for each zone
+    for zone, names_dict in zones_info.items():
+        
+        # Add used shifst and rest days for bookings
+        rows = get_self_shifts(session["user"], month, zone)
+        booked = {}
         for book in rows:
             name, day = book['name'], book['day']
             graphic[day] = {zone: name}
-            for delta in [-2, -1, 0, 1, 2]: # add rest days  
+            booked[day] = {zone: name}
+            # Add shift as used 
+            shifts_used[name] = shifts_used.get(name, 0) + 1 
+            # Add rest days
+            for delta in [-2, -1, 0, 1, 2]: 
                 rest_day = day + delta
                 if 1 <= rest_day <= days_in_month:
                     worker_unavail[name].add(rest_day)
-    print(worker_unavail)
-
-    # # Making heap for otvet
-    # zone_heap = []
-    # for name in zones_candidates['OTVET']:
-    #     zone_heap.append((0, 1, name)) # (shifts_used, next_available_day, name)
-    # heapq.heapify(zone_heap)
-    # shifts_used_otvet = {}
-    # next_available_otvet = {}
-    
-    # # Algo for otvet
-    # for day in range(1, days_in_month + 1):
-    #     skip = []
-    #     assign = False
-    #     if day in graphic and 'OTVET' in graphic[day]:
-    #         continue 
-    #     while zone_heap:
-    #         used, avail, name = heapq.heappop(zone_heap)
-
-    #         # Check
-    #         if used >= workers_info[name]['shifts']:
-    #             continue
-    #         if day < avail:
-    #             skip.append((used, avail, name))
-    #             continue
-    #         if day in workers_info[name]['exceptions']:
-    #             skip.append((used, avail, name))
-    #             continue
-
-    #         graphic.setdefault(day, {'OTV': None})['OTV'] = name  
-    #         shifts_used_otvet[name] = shifts_used_otvet.get(name, 0) + 1 
-    #         next_available_otvet[name] = next_available_otvet.get(name, day) + 3
-    #         heapq.heappush(zone_heap, 
-    #                        (shifts_used_otvet[name], next_available_otvet[name], name))
-    #         assign = True
-    #         break
         
-    #     # Push back skipped candidates
-    #     for sk in skip:
-    #         heapq.heappush(zone_heap, sk)
-    #     if not assign:
-    #         graphic.setdefault(day, {'OTV': None})['OTV'] = None
-    return graphic
+        # Make heap for zone
+        heap = []
+        for name in names_dict:
+            heap.append((shifts_used[name], name))
+        heapq.heapify(heap)
+        zone_heaps[zone] = heap
+    
+    # Algo for zone
+    for zone, names_dict in zones_info.items():
+        zone_heap = zone_heaps[zone]
+        for day in range(1, days_in_month + 1):
+            if graphic[day][zone] is not None:
+                continue 
+            skip = []
+            assign = False
+            while zone_heap:
+                used, name = heapq.heappop(zone_heap)
+
+                # Check
+                if used >= workers_info[name]['shifts']:
+                    continue
+                if day in worker_unavail[name]:
+                    skip.append((used, name))
+                    continue
+
+                graphic.setdefault(day, {zone: None})[zone] = name  # Fill in td
+                shifts_used[name] = shifts_used.get(name, 0) + 1 # Add shift
+                # Add rest days
+                for delta in (1, 2): 
+                    rest_day = day + delta
+                    if 1 <= rest_day <= days_in_month:
+                        worker_unavail[name].add(rest_day)
+                heapq.heappush(zone_heap, (shifts_used[name], name)) # Back to heap
+                assign = True
+                break
+
+            # Push back skipped candidates
+            for sk in skip:
+                heapq.heappush(zone_heap, sk)
+            if not assign:
+                graphic.setdefault(day, {zone: None})[zone] = None
+        print(f'UNAV!\n{worker_unavail}')
+        print(f'FINAL!\n{graphic}')
+
+    return jsonify({'graphic': graphic,
+                    'booked': booked})
 
 @app.route('/logout')
 def logout():

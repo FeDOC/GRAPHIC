@@ -155,17 +155,17 @@
                 <!-- Shifts table and buttons -->
                 <div class="month-shift-table-wrapper-and-buttons">
                     <div class="month-shift-table-buttons">
-                        <form id="cur-save-form">
-                            <button name='cur-save-names' type="submit">Save Names</button>
+                        <form class='shifts-save-form' id="cur-save-form">
+                            <button type="submit">Save Names</button>
                         </form>
-                        <form id="cur-generate-form">
-                            <button name='cur-generate' type="submit">Generate Table</button>
+                        <form class='generate-form' id='cur-generate-form'>
+                            <button type="submit">Generate Table</button>
                         </form>
-                        <form id="cur-clear-generated-form">
-                            <button name='cur-generated-clear' type="submit">Clear Generated</button>
+                        <form class='clear-generated-form' id="cur-clear-generated-form">
+                            <button type="submit">Clear Generated</button>
                         </form>
                         <form id="cur-clear-all-form">
-                            <button name='cur-clear-all' type="submit">Clear All</button>
+                            <button type="submit">Clear All</button>
                         </form>
                     </div>
                     <div class="month-shift-table-wrapper">
@@ -191,7 +191,7 @@
                                         {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
                                         <td class="cur-editable 
                                         {% if shifts_tables['cur'].get(row.day, {}).get(column, [None, None])[1] == 'self' %}        
-                                            cur-saved    
+                                            booked    
                                         {% endif %}" data-name="{{ column }}_{{ row.day }}">
                                             {% if row['day'] in shifts_tables['cur'] %}
                                                 {% if column in shifts_tables['cur'][row['day']] %}

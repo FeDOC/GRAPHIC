@@ -435,8 +435,13 @@ if (page === 'account-page') {
         });
     });
 
+
+    // ----------------------------
+    // MONTH WORKERS TABLE
+    // ----------------------------
+
         // ----------------------------
-        // EDIT ROWS IN MONTHS
+        // EDIT ROWS 
         // ----------------------------
 
     function MonthEditableCells(row) {
@@ -500,24 +505,10 @@ if (page === 'account-page') {
         //     body: JSON.stringify({ name, exceptions, shifts })
         // });
     }
-    
-    // Collects inputs in shifts table (booked days) 
-    function collectEditedCells(form) {
-        form.querySelectorAll('input[type="hidden"]').forEach(i => i.remove());
-        const editedTds = [];
-        document.querySelectorAll('.cur-editable').forEach(td => {
-            const value = td.textContent.trim();
-            if (value !== "") {
-                const hidden = document.createElement('input');
-                hidden.type = 'hidden';
-                hidden.name = td.dataset.name;
-                hidden.value = value;
-                form.appendChild(hidden);
-                editedTds.push(td);
-            }
-        });
-        return editedTds;
-    }
+
+        // ----------------------------
+        // COLLECT INFO
+        // ----------------------------
 
     // Collects exceptions and shifts from cur month
     function exceptionsShifts() {
@@ -537,13 +528,67 @@ if (page === 'account-page') {
         return result
     }
 
-    // Apply editable rows function to cur month workers table
-    document.querySelectorAll('.month-workers-table.cur tbody tr').forEach(MonthEditableCells);
+    // ----------------------------
+    // SHIFTS TABLE
+    // ----------------------------
 
-        // ----------------------------
-        // SHIFTS TABLE
-        // ----------------------------
+    // Collects inputs in shifts table (booked days) 
+    function collectEditedCells(form) {
+        form.querySelectorAll('input[type="hidden"]').forEach(i => i.remove());
+        const editedTds = [];
+        document.querySelectorAll('.cur-editable').forEach(td => {
+            const value = td.textContent.trim();
+            if (value !== "") {
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = td.dataset.name;
+                hidden.value = value;
+                form.appendChild(hidden);
+                editedTds.push(td);
+            }
+        });
+        return editedTds;
+    }
 
+    // Removes generated shifts from shifts table, only booked stay 
+    function clearGenerated() {
+        const activeTab = document.querySelector('.month-tab-content.active');
+        const tbody = activeTab.querySelector('.month-shifts-table tbody');
+        Array.from(tbody.rows).forEach(row => {
+            // skip first column (day)
+            Array.from(row.cells).slice(1).forEach(td => {
+                if (!td.classList.contains('booked')) {
+                    td.textContent = '';
+                }
+            });
+        });
+    }
+
+    // Fill shifts table with generated graphic data
+    function fillTable(graphic, booked) {
+        const activeTab = document.querySelector('.month-tab-content.active');
+        const table = activeTab.querySelector('.month-shifts-table');
+        const tbody = table.querySelector('tbody');
+        const headerCells = table.querySelectorAll('thead th');
+        const zones = Array.from(headerCells)
+                            .slice(1) // skip first column (Day)
+                            .map(th => th.textContent.trim());
+        Array.from(tbody.rows).forEach(row => {
+            Array.from(row.cells).slice(1).forEach(td => td.textContent = '');
+        });
+
+        Object.keys(graphic)
+            .sort((a, b) => Number(a) - Number(b)) // days as numbers
+            .forEach((day, rowIndex) => {
+                const tr = tbody.rows[rowIndex]
+                zones.forEach((zone, colIndex) => {
+                    const td = tr.cells[colIndex + 1]; 
+                    td.textContent = graphic[day][zone] ?? '';
+                });    
+            });
+    }
+
+    // Main DOM Listener
     document.addEventListener("DOMContentLoaded", async () => {
 
         // async function to load workers names from SQL(workers)
@@ -554,8 +599,21 @@ if (page === 'account-page') {
         const suggestionBox = document.createElement("div");
         suggestionBox.classList.add("autocomplete-suggestions");
         document.body.appendChild(suggestionBox);
+
+        // Apply editable rows function to cur month workers table
+        document.querySelectorAll('.month-workers-table.cur tbody tr').forEach(MonthEditableCells);
         
-        // Select all editable cells
+        // Save exceptions and shifts for cur month
+        document.getElementById('cur-workers-save-form')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            fetch('/account/months/save_cur', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(exceptionsShifts())
+            });
+        });
+
+        // Edit each td in cur month shifts table
         document.querySelectorAll(".cur-editable").forEach(cell => {
             cell.addEventListener("click", function () {
                 // If the cell is empty, add an input field
@@ -618,15 +676,6 @@ if (page === 'account-page') {
             });
         });
 
-        document.getElementById('cur-workers-save-form')?.addEventListener('submit', function(e) {
-            e.preventDefault();
-            fetch('/account/months/save_cur', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(exceptionsShifts())
-            });
-        });
-
         // Hidden input for each table cell to save filled names  
         document.getElementById('cur-save-form')?.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -642,16 +691,38 @@ if (page === 'account-page') {
                 })
                 .then(res => res.json())   
                 .then(() => {
-                    editedTds.forEach(td => td.classList.add('cur-saved'));
+                    editedTds.forEach(td => td.classList.add('booked'));
                 });
             }
         });
+        
+        // Generate shift table for cur or next month 
+        document.querySelectorAll('form.generate-form').forEach(form => {
+            form.addEventListener('submit', e => {
+                e.preventDefault();
+                const formId = form.id;
+                let month;
+                if (formId === "cur-generate-form") {
+                    month = 'cur'
+                } else if (formId === "next-generate-form") {
+                    month = 'next'
+                }
+                fetch('/account/shifts/generate', {
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({'month': month}) 
+                })
+                .then(res => res.json())
+                .then(data => {fillTable(data.graphic, data.booked)})
+            });
+        });
 
-        document.getElementById('cur-generate-form')?.addEventListener('submit', function(e) {
-            e.preventDefault();
-            fetch('/account/shifts/generate_cur', {
-                method: 'POST' 
-            })
+        // Clear generated names from shifts table
+        document.querySelectorAll('form.clear-generated-form').forEach(form => {
+            form.addEventListener('submit', e => {
+                e.preventDefault();
+                clearGenerated()
+            });
         });
     });
 };
