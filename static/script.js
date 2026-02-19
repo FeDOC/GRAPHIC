@@ -468,12 +468,24 @@ if (page === 'account-page') {
         editBtn.textContent = 'Apply';
 
         // Exceptions Dates cell 
-        const excInput = document.createElement('input');
-        excInput.type = 'text';
+        const excInput = document.createElement('textarea');
+        excInput.style.width = '100%';
+        excInput.style.font = 'inherit';
+        excInput.style.paddingBottom = '5px';
+        excInput.rows = excInput.value.split('\n').length;
+        excInput.style.boxSizing = 'border-box';
+        excInput.style.display = 'block';
         excInput.value = cells[2].textContent;
+        excInput.addEventListener('input', () => { // resizing if add new lines
+            excInput.style.height = 'auto';
+            excInput.style.height = excInput.scrollHeight + 'px';
+        });
+        cells[2].dataset.oldValue = cells[2].textContent; // save old text to compare in apply 
         cells[2].textContent = '';
+        cells[2].style.padding = '1px';
         cells[2].style.width = '40%'
         cells[2].appendChild(excInput);
+        excInput.dispatchEvent(new Event('input'));
 
         // Shifts number cell
         const shiftsInput = document.createElement('input');
@@ -482,28 +494,51 @@ if (page === 'account-page') {
         shiftsInput.style.width = '40%';
         shiftsInput.value = parseInt(cells[3].textContent);
         cells[3].style.width = '8%';
+        cells[3].dataset.oldValue = cells[3].textContent;
         cells[3].textContent = '';
         cells[3].appendChild(shiftsInput);
     }
 
     function applyMonthRow(row, editBtn) {
         const cells = row.querySelectorAll('td');
+        
+        // Prev numbers
+        const oldExceptions = cells[2].dataset.oldValue
+            ? cells[2].dataset.oldValue.split(',').map(x => x.trim()) // if exist
+            : []; // if not exist
+        const oldShifts = cells[3].dataset.oldValue 
+            ? cells[3].dataset.oldValue
+            : '';
 
-        const exceptions = cells[2].querySelector('input').value.split(',').map(x => x.trim());
-        const shifts = parseInt(cells[3].querySelector('input').value) || 0;
+        // New input
+        const newExceptions = cells[2].querySelector('textarea').value.split(',').map(x => x.trim());
+        const newShifts = cells[3].querySelector('input').value || '';
 
-        // Replace inputs with text
-        cells[2].textContent = exceptions.join(', ');
-        cells[3].textContent = shifts;
+        // Exceptions
+        cells[2].textContent = '';
+        newExceptions.forEach((exc, i) => {
+            const span = document.createElement('span');
+            span.textContent = exc;
+            // Compare with old: if it’s new, make green
+            if (!oldExceptions.includes(exc)) {
+                span.style.color = 'green';
+            }
+            cells[2].appendChild(span);
+            if (i < newExceptions.length - 1) {
+                cells[2].appendChild(document.createTextNode(', '));
+            }
+        });
+
+        // Shifts
+        cells[3].textContent = '';
+        const shiftSpan = document.createElement('span');
+        shiftSpan.textContent = newShifts;
+        if (oldShifts !== newShifts) {
+            shiftSpan.style.color = 'green';
+        }
+        cells[3].appendChild(shiftSpan);
 
         editBtn.textContent = 'Edit';
-
-        // Send updated row to backend
-        // fetch('/account/months/update', {
-        //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify({ name, exceptions, shifts })
-        // });
     }
 
         // ----------------------------
@@ -524,7 +559,6 @@ if (page === 'account-page') {
                             shifts: shifts
             }
         });
-        console.log(result)
         return result
     }
 
@@ -588,7 +622,23 @@ if (page === 'account-page') {
             });
     }
 
-    // Main DOM Listener
+    // Clear all shifts table cells 
+    function clearAll() {
+        const activeTab = document.querySelector('.month-tab-content.active');
+        const tbody = activeTab.querySelector('.month-shifts-table tbody');
+        Array.from(tbody.rows).forEach(row => {
+            // skip first column (day)
+            Array.from(row.cells).slice(1).forEach(td => {
+                td.textContent = '';
+                td.classList.remove('booked')
+            });
+        });
+    }
+
+    // ----------------------------
+    // MAIN DOM LISTENER
+    // ----------------------------
+
     document.addEventListener("DOMContentLoaded", async () => {
 
         // async function to load workers names from SQL(workers)
@@ -722,6 +772,25 @@ if (page === 'account-page') {
             form.addEventListener('submit', e => {
                 e.preventDefault();
                 clearGenerated()
+            });
+        });
+
+        document.querySelectorAll('form.clear-all-form').forEach(form => {
+            form.addEventListener('submit', e => {
+                e.preventDefault();
+                const formId = form.id;
+                let month;
+                if (formId === "cur-clear-all-form") {
+                    month = 'cur'
+                } else if (formId === "next-clear-all-form") {
+                    month = 'next'
+                }
+                fetch('/account/shifts/clear_all_shifts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({'month': month})  
+                })
+                .then(clearAll())
             });
         });
     });

@@ -62,8 +62,8 @@ def transform_vacations(rows):
 
 # Days of vacations for worker for month tab
 def list_vacation_days(get_month_workers, user, years, months): 
-    # month_bounds[func], get_month_workers[func], user[str], years[dict], months[dict] 
-    # ->  {prev: {name: days[str]}, cur:, next:}  
+    # get_month_workers[func], user[str], years[dict], months[dict] 
+    # ->  {prev: {'name': days[str]}, cur:, next:}  
 
     # Define month bounds
     def month_bounds(year, month):
@@ -100,6 +100,21 @@ def list_vacation_days(get_month_workers, user, years, months):
             months_vacations[i].setdefault(line['name'], []).extend(vacation_intervals_in_month(vac_start, vac_end,
                                                             month_start, month_end))
     return months_vacations
+
+def highlite(months_vacations, workers, months_info, months):
+    result = {}
+    for month in months:
+        result[month] = {}
+        for name, info in months_info[month].items():
+            vacations = months_vacations[month].get(name, [])
+            base_shifts = workers[name]['shifts']
+            exceptions = [int(e.strip()) for e in info['exceptions'].split(',') if e.strip()]
+            true_shifts = info['shifts']
+            diff = [e for e in exceptions if e not in vacations]
+            shifts = true_shifts if true_shifts != base_shifts else None
+            result[month][name] = {'exceptions': diff, 
+                                   'shifts': shifts}
+    return result
 
 # Parse vacations string to start and end in date format 
 def parse_vacations(vacations): # ["date - date", ...] -> [(datetime.date, datetime.date), ...]:
@@ -547,6 +562,29 @@ def get_self_shifts(user, month, zone): # [{name: str, day: int}]
     conn.close()
     return rows
 
+# Get all exceptions (vacations + added) and shifts from SQL(months)
+def get_months_workers_updated(user, months):
+    # -> {prev: {name: {'exceptions': str, 'shifts': int}}}
+    result = {}
+    conn = db_connect()
+    cur = conn.cursor()
+    for month in months:
+        result[month] = {}
+        cur.execute("""
+            SELECT name, exceptions, m.shifts
+            FROM months m
+            LEFT JOIN workers w ON w.id = m.worker_id
+            WHERE username=? AND month=?
+            ORDER BY name""", 
+            (user, month))
+        rows = cur.fetchall()
+        for row in rows:
+            result[month][row['name']] = {'exceptions': row['exceptions'],
+                                        'shifts': row['shifts']}
+    cur.close()
+    conn.close()
+    return result
+
 # Delete user previous data and add edited worker's exceptions and shifts to SQL(months)
 def add_months_workers(user, month, data):
     conn = db_connect()
@@ -636,6 +674,21 @@ def generation_info(user, month): # {name: {exceptions: set(), shifts: int}}
 def add_auto_shifts(user, filled_self, month):
     pass
 
+# Clear all data (self+auto) from SQL(shifts) for specified month
+def clear_all(user, month):
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute('''
+        DELETE FROM shifts
+        WHERE worker_id IN (
+            SELECT id FROM workers WHERE username = ?
+        )
+        AND month = ?''', 
+        (user, month))
+    conn.commit()
+    cur.close()
+    conn.close()
+
 # --------------------------------------------------
 # ROUTES
 # --------------------------------------------------
@@ -672,20 +725,23 @@ def account():
         user = session["user"]
     
     # Load workers for template
-    rows = get_workers(session["user"])
+    rows = get_workers(user)
     workers = transform_vacations(rows)
 
     # Load date for month tabs
     months, years = loaded_date
-
     months_vacations = list_vacation_days(get_month_workers, user, years, months)
+    months_info = get_months_workers_updated(user, months)
+
+    # Highlite differents between added info and basic
+    highlites = highlite(months_vacations, workers, months_info, months)
     
-    month_shift_table = {
+    months_days = {
         'prev': month_days(years, months, 'prev'), # {days_in_month: int, days: [{day: int, weekend: bool}]]
         'cur': month_days(years, months, 'cur'),
         'next': month_days(years, months, 'next')}
-    
     shifts_tables = get_shifts(session["user"])
+    
     return render_template(
         "account.html",
         username=session["user"],
@@ -693,7 +749,8 @@ def account():
         years=years,
         workers=workers,
         months_vacations=months_vacations,
-        month_shift_table=month_shift_table,
+        months_days=months_days,
+        highlites=highlites,
         shifts_tables = shifts_tables)
 
 @app.route("/account/workers/add", methods=["POST"])
@@ -788,6 +845,13 @@ def save_cur_month_workers():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401
     data = request.get_json()
+    months, years = loaded_date
+    # month_vacations = list_vacation_days(get_month_workers, session['user'], years, months)['cur']
+
+    # name = data['name']
+    # exceptions = data['exceptions']
+    # shifts = data['shifts']
+
     add_months_workers(session["user"], 'cur', data)
     return data
 
@@ -797,12 +861,14 @@ def clear_generated():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401
     
-
-
 # Clear all names in cur month 
-@app.route("/account/shifts/clear_all", methods=["POST"])
-def shifts_clear_all():
-    pass
+@app.route("/account/shifts/clear_all_shifts", methods=["POST"])
+def clear_all_shifts():
+    if "user" not in session:
+        return {"success": False, "error": "Not logged in"}, 401
+    month = request.get_json().get('month')
+    clear_all(session['user'], month)
+    return 'Shifts deleted'
 
 # Generate shifts table in cur month 
 @app.route("/account/shifts/generate", methods=["POST"])

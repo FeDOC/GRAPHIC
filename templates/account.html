@@ -101,7 +101,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for row in month_shift_table['prev']['days'] %}
+                            {% for row in months_days['prev']['days'] %}
                                 <tr class="{% if row.is_weekend %}weekend{% endif %}">
                                     <td>{{ row.day }}</td>
                                     <!-- Loop through each column (except first) to allow input -->
@@ -143,10 +143,27 @@
                                     <button class="edit-btn">Edit</button>
                                 </td>
                                 <td>{{ name }}</td>
-                                <td>{{ months_vacations['cur'][name] | join(', ') 
-                                        if months_vacations['cur'][name] 
-                                        else '' }}</td>
-                                <td>{{ values['shifts'] }}</td>
+                                <td>
+                                    {% for day in months_vacations_list['cur'].get(name, []) %}
+                                        {% if day in highlight['cur'][name]['exceptions'] %}
+                                            <span class="green">{{ day }}</span>
+                                        {% else %}
+                                            {{ day }}
+                                        {% endif %}
+
+                                        {% if not loop.last %}, {% endif %}
+
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {% if highlight['cur'][name]['shifts'] is not none %}
+                                        <span style="color:green">
+                                            {{ highlight['cur'][name]['shifts'] }}
+                                        </span>
+                                    {% else %}
+                                        {{ values['shifts'] }}
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -164,7 +181,7 @@
                         <form class='clear-generated-form' id="cur-clear-generated-form">
                             <button type="submit">Clear Generated</button>
                         </form>
-                        <form id="cur-clear-all-form">
+                        <form class='clear-all-form' id="cur-clear-all-form">
                             <button type="submit">Clear All</button>
                         </form>
                     </div>
@@ -183,7 +200,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for row in month_shift_table['cur']['days'] %}
+                                {% for row in months_days['cur']['days'] %}
                                     <tr class="{% if row.is_weekend %}weekend{% endif %}">
                                         <td>{{ row['day'] }}</td>
                                         
@@ -253,7 +270,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for row in month_shift_table['next']['days'] %}
+                            {% for row in months_days['next']['days'] %}
                                 <tr class="{% if row.is_weekend %}weekend{% endif %}">
                                     <td>{{ row.day }}</td>
                                     <!-- Loop through each column (except first) to allow input -->
