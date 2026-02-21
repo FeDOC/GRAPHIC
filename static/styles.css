@@ -257,3 +257,7 @@ body {
     background-color: #76b471; /* soft green */
     transition: background-color 0.3s ease;
 }
+
+.hidden {
+    display: none;
+}

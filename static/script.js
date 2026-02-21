@@ -660,7 +660,11 @@ if (page === 'account-page') {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(exceptionsShifts())
-            });
+            })
+            .then(() => 
+                document.getElementById('cur-month-shift-table-wrapper-and-buttons')
+                        .classList.remove('hidden')
+                );
         });
 
         // Edit each td in cur month shifts table

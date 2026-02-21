@@ -143,22 +143,29 @@
                                     <button class="edit-btn">Edit</button>
                                 </td>
                                 <td>{{ name }}</td>
+                                {% if months_updated %}
+                                    {% set days = months_updated.get('cur', {}).get(name, {}).get('exceptions', []) %}
+                                {% else %}
+                                    {% set days = months_vacations.get('cur', {}).get(name, []) %}
+                                {% endif %}
                                 <td>
-                                    {% for day in months_vacations_list['cur'].get(name, []) %}
-                                        {% if day in highlight['cur'][name]['exceptions'] %}
-                                            <span class="green">{{ day }}</span>
+                                    {% for day in days %}
+                                        {% if day in highlights['cur'][name]['exceptions'] %}
+                                            <span style="color: red">
+                                                {{ day }}
+                                            </span>
                                         {% else %}
                                             {{ day }}
                                         {% endif %}
-
+                                        <!-- Add comma if not last -->
                                         {% if not loop.last %}, {% endif %}
 
                                     {% endfor %}
                                 </td>
                                 <td>
-                                    {% if highlight['cur'][name]['shifts'] is not none %}
+                                    {% if highlights['cur'][name]['shifts'] is not none %}
                                         <span style="color:green">
-                                            {{ highlight['cur'][name]['shifts'] }}
+                                            {{ highlights['cur'][name]['shifts'] }}
                                         </span>
                                     {% else %}
                                         {{ values['shifts'] }}
@@ -170,7 +177,8 @@
                     </table>
                 </div>
                 <!-- Shifts table and buttons -->
-                <div class="month-shift-table-wrapper-and-buttons">
+                <div class="month-shift-table-wrapper-and-buttons hidden" 
+                    id="cur-month-shift-table-wrapper-and-buttons">
                     <div class="month-shift-table-buttons">
                         <form class='shifts-save-form' id="cur-save-form">
                             <button type="submit">Save Names</button>

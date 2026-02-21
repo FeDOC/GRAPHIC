@@ -108,7 +108,7 @@ def highlite(months_vacations, workers, months_info, months):
         for name, info in months_info[month].items():
             vacations = months_vacations[month].get(name, [])
             base_shifts = workers[name]['shifts']
-            exceptions = [int(e.strip()) for e in info['exceptions'].split(',') if e.strip()]
+            exceptions = info['exceptions'] 
             true_shifts = info['shifts']
             diff = [e for e in exceptions if e not in vacations]
             shifts = true_shifts if true_shifts != base_shifts else None
@@ -579,7 +579,8 @@ def get_months_workers_updated(user, months):
             (user, month))
         rows = cur.fetchall()
         for row in rows:
-            result[month][row['name']] = {'exceptions': row['exceptions'],
+            excs = list(map(int, [d.strip() for d in row['exceptions'].split(',') if d.strip()]))
+            result[month][row['name']] = {'exceptions': excs,
                                         'shifts': row['shifts']}
     cur.close()
     conn.close()
@@ -731,10 +732,13 @@ def account():
     # Load date for month tabs
     months, years = loaded_date
     months_vacations = list_vacation_days(get_month_workers, user, years, months)
-    months_info = get_months_workers_updated(user, months)
+    months_updated = get_months_workers_updated(user, months)
 
     # Highlite differents between added info and basic
-    highlites = highlite(months_vacations, workers, months_info, months)
+    highlights = highlite(months_vacations, workers, months_updated, months)
+    print(f'HIGHLIGHTS\n{highlights}')
+    print(f'VAC\n{months_vacations}')
+    print(f'MONTH UPD\n{months_updated}')
     
     months_days = {
         'prev': month_days(years, months, 'prev'), # {days_in_month: int, days: [{day: int, weekend: bool}]]
@@ -749,8 +753,9 @@ def account():
         years=years,
         workers=workers,
         months_vacations=months_vacations,
+        months_updated=months_updated,
         months_days=months_days,
-        highlites=highlites,
+        highlights=highlights,
         shifts_tables = shifts_tables)
 
 @app.route("/account/workers/add", methods=["POST"])
