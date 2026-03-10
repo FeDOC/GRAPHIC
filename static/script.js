@@ -139,7 +139,7 @@ if (page === 'account-page') {
         container_checkbox.style.gap = "10px";
         container_checkbox.style.alignItems = 'center';
         container_checkbox.style.justifyContent = 'center';
-        ['OTVET','DIAGN','EXTR','PLAN','GREEN','YELLOW', 'TORAC'].forEach(zone => {
+        ['OTVET','DIAGNOS','EXTR','PLAN','GREEN','YELLOW', 'TORAC'].forEach(zone => {
             const item = document.createElement('div');
             item.style.display = 'flex';
             item.style.flexDirection = "column";
@@ -355,7 +355,7 @@ if (page === 'account-page') {
         placeContainer.style.display = 'flex';
         placeContainer.style.gap = '10px';
         const originalPlaces = cells[5].textContent.split(',').map(x => x.trim());
-        ['OTVET','DIAGN','EXTR','PLAN','GREEN','YELLOW','TORAC'].forEach(zone => {
+        ['OTVET','DIAGNOS','EXTR','PLAN','GREEN','YELLOW','TORAC'].forEach(zone => {
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.value = zone;
@@ -599,7 +599,7 @@ if (page === 'account-page') {
     }
 
     // Fill shifts table with generated graphic data
-    function fillTable(graphic, booked) {
+    function fillTable(graphic) {
         const activeTab = document.querySelector('.month-tab-content.active');
         const table = activeTab.querySelector('.month-shifts-table');
         const tbody = table.querySelector('tbody');
@@ -767,7 +767,7 @@ if (page === 'account-page') {
                     body: JSON.stringify({'month': month}) 
                 })
                 .then(res => res.json())
-                .then(data => {fillTable(data.graphic, data.booked)})
+                .then(data => {fillTable(data)})
             });
         });
 
@@ -779,6 +779,7 @@ if (page === 'account-page') {
             });
         });
 
+        // Clear all names from shifts table
         document.querySelectorAll('form.clear-all-form').forEach(form => {
             form.addEventListener('submit', e => {
                 e.preventDefault();
@@ -795,6 +796,27 @@ if (page === 'account-page') {
                     body: JSON.stringify({'month': month})  
                 })
                 .then(clearAll())
+            });
+        });
+
+        // Save table to Excel file
+        document.querySelectorAll('.save-excel').forEach(form => {
+            form.addEventListener('submit', e => {
+                e.preventDefault();
+                fetch('/account/shifts/save_excel', {
+                    method: 'POST'     
+                })
+                .then(res => res.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'graphic.xlsx';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                });
             });
         });
     });

@@ -101,14 +101,12 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for row in months_days['prev']['days'] %}
-                                <tr class="{% if row.is_weekend %}weekend{% endif %}">
-                                    <td>{{ row.day }}</td>
+                            {% for day, weekend in months_days['prev']['days'].items() %}
+                                <tr class="{% if weekend %}weekend{% endif %}">
+                                    <td>{{ day }}</td>
                                     <!-- Loop through each column (except first) to allow input -->
                                     {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
-                                    <td class="editable" data-name="name_{{ column }}_{{ row.day }}">
-                                        <!-- {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }} -->
-                                    </td>
+                                    <td class="editable" data-name="name_{{ column }}_{{ day }}">                                    </td>
                                     {% endfor %}
                                 </tr>
                             {% endfor %}
@@ -143,27 +141,29 @@
                                     <button class="edit-btn">Edit</button>
                                 </td>
                                 <td>{{ name }}</td>
-                                {% if months_updated %}
+                                {% if months_updated['cur'] %}
                                     {% set days = months_updated.get('cur', {}).get(name, {}).get('exceptions', []) %}
                                 {% else %}
                                     {% set days = months_vacations.get('cur', {}).get(name, []) %}
                                 {% endif %}
                                 <td>
-                                    {% for day in days %}
-                                        {% if day in highlights['cur'][name]['exceptions'] %}
-                                            <span style="color: red">
-                                                {{ day }}
-                                            </span>
-                                        {% else %}
+                                {% for day in days %}
+                                    {% if (name in highlights['cur'] 
+                                    and day in highlights['cur'][name]['exceptions'])  %}
+                                        <span style="color: red">
                                             {{ day }}
-                                        {% endif %}
-                                        <!-- Add comma if not last -->
-                                        {% if not loop.last %}, {% endif %}
+                                        </span>
+                                    {% else %}
+                                        {{ day }}
+                                    {% endif %}
+                                    <!-- Add comma if not last -->
+                                    {% if not loop.last %}, {% endif %}
 
-                                    {% endfor %}
+                                {% endfor %}
                                 </td>
                                 <td>
-                                    {% if highlights['cur'][name]['shifts'] is not none %}
+                                    {% if (name in highlights['cur']
+                                    and highlights['cur'][name]['shifts'] is not none) %}
                                         <span style="color:green">
                                             {{ highlights['cur'][name]['shifts'] }}
                                         </span>
@@ -192,6 +192,9 @@
                         <form class='clear-all-form' id="cur-clear-all-form">
                             <button type="submit">Clear All</button>
                         </form>
+                        <form class='save-excel' id="cur-save-excel">
+                            <button type="submit">Save to Excel</button>
+                        </form>
                     </div>
                     <div class="month-shift-table-wrapper">
                         <table class="month-shifts-table">
@@ -208,19 +211,19 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for row in months_days['cur']['days'] %}
-                                    <tr class="{% if row.is_weekend %}weekend{% endif %}">
-                                        <td>{{ row['day'] }}</td>
+                                {% for day, weekend in months_days['cur']['days'].items() %}
+                                    <tr class="{% if weekend %}weekend{% endif %}">
+                                        <td>{{ day }}</td>
                                         
                                         <!-- Loop through each column (except first) to allow input -->
                                         {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
                                         <td class="cur-editable 
-                                        {% if shifts_tables['cur'].get(row.day, {}).get(column, [None, None])[1] == 'self' %}        
+                                        {% if shifts_tables['cur'].get(day, {}).get(column, [None, None])[1] == 'self' %}        
                                             booked    
-                                        {% endif %}" data-name="{{ column }}_{{ row.day }}">
-                                            {% if row['day'] in shifts_tables['cur'] %}
-                                                {% if column in shifts_tables['cur'][row['day']] %}
-                                                    {{ shifts_tables['cur'][row['day']][column][0] }}
+                                        {% endif %}" data-name="{{ column }}_{{ day }}">
+                                            {% if day in shifts_tables['cur'] %}
+                                                {% if column in shifts_tables['cur'][day] %}
+                                                    {{ shifts_tables['cur'][day][column][0] }}
                                                 {% endif %}
                                             {% endif %}
                                         </td>
@@ -278,14 +281,12 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for row in months_days['next']['days'] %}
-                                <tr class="{% if row.is_weekend %}weekend{% endif %}">
-                                    <td>{{ row.day }}</td>
+                            {% for day, weekend in months_days['next']['days'].items() %}
+                                <tr class="{% if weekend %}weekend{% endif %}">
+                                    <td>{{ day }}</td>
                                     <!-- Loop through each column (except first) to allow input -->
                                     {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
-                                    <td class="editable" data-name="name_{{ column }}_{{ row.day }}">
-                                        <!-- {{ row.get('name_' ~ column ~ '_' ~ row.day, '') }} -->
-                                    </td>
+                                    <td class="editable" data-name="name_{{ column }}_{{ day }}">                                    </td>
                                     {% endfor %}
                                 </tr>
                             {% endfor %}

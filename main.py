@@ -1,10 +1,9 @@
-from flask import Flask, render_template, request, session, redirect, url_for, flash, jsonify
-import calendar
-import sqlite3
+from flask import Flask, render_template, request, session, redirect, url_for, flash, jsonify, send_file
+import calendar, sqlite3, heapq, random, pandas as pd, io
+import pandas as pd
 from datetime import datetime, date, timedelta
 from config import Config
 from collections import defaultdict
-import heapq 
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -33,9 +32,9 @@ loaded_date = load_date()
 
 def month_days(years, months, current_month):
     days_in_month = calendar.monthrange(years[current_month], months[current_month][0])[1]
-    days = [
-        {'day': day, 'is_weekend': datetime(years[current_month], months[current_month][0], day).weekday() >= 5}
-        for day in range(1, days_in_month + 1)]
+    days = {
+        day: datetime(years[current_month], months[current_month][0], day).weekday() >= 5
+        for day in range(1, days_in_month + 1)}
     return {'days_in_month': days_in_month, 
             'days': days}
 
@@ -250,6 +249,7 @@ def create_shifts_table():
             FOREIGN KEY (worker_id)
                 REFERENCES workers(id)
                 ON DELETE CASCADE
+            UNIQUE (worker_id, month, filled, zone, day)
         )
     """)
     cur.execute("""
@@ -314,8 +314,9 @@ def add_worker(user, name, role, vacations, shifts, places):
                 INSERT INTO vacations (worker_id, vacation_start, vacation_end)
                 VALUES (?, ?, ?)
                 """, 
-                [(worker_id, v_start, v_end) for v_start, v_end in vacations])
+                [(worker_id, v_start, v_end) for v_start, v_end in vacations]) 
         conn.commit()
+
     except ValueError:
         raise ValueError("Invalid date format")
     except sqlite3.IntegrityError:
@@ -443,19 +444,6 @@ def update_worker(username, name, role, vacations, shifts, places):
         cur.close()
         conn.close()
 
-# Update worker in month tab
-def update_months(username, name, month, exceptions, shifts):
-    conn = db_connect()
-    cur = conn.cursor()
-    cur.execute('''
-        UPDATE months
-        SET exceptions = ?, shifts = ?
-        WHERE username = ? AND name = ? and month = ?
-    ''', (exceptions, shifts, username, name, month))
-    conn.commit()
-    cur.close()
-    conn.close()
-
 # Get all workers names from SQL(workers)
 def get_workers_names(user): # [{name: name[str]}]
     conn = db_connect()
@@ -557,7 +545,6 @@ def get_self_shifts(user, month, zone): # [{name: str, day: int}]
         WHERE month = ? AND zone = ? AND filled = 'self' AND username = ?
     ''', (month, zone, user))
     rows = cur.fetchall()
-    print(rows)
     cur.close()
     conn.close()
     return rows
@@ -672,8 +659,33 @@ def generation_info(user, month): # {name: {exceptions: set(), shifts: int}}
     return info
 
 # Add generated names to SQL(shifts)
-def add_auto_shifts(user, filled_self, month):
-    pass
+def add_auto_shifts(user, graphic, month):
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute('''
+        DELETE FROM shifts
+        WHERE worker_id IN (
+            SELECT id FROM workers WHERE username = ?)
+            AND filled = 'auto'
+    ''', (user,))
+    for day, zones in graphic.items():
+        for zone, name in zones.items():
+            if name:
+                cur.execute(''' 
+                    SELECT id FROM workers
+                    WHERE username = ? AND name = ?
+                ''', (user, name))
+                print(name, 'WORK')
+                row = cur.fetchone()
+                worker_id = row[0]
+                cur.execute("""
+                    INSERT OR IGNORE INTO shifts (worker_id, month, filled, zone, day)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (worker_id, month, 'auto', zone, day))
+                print(name, 'DONE')
+    conn.commit()
+    cur.close()
+    conn.close()
 
 # Clear all data (self+auto) from SQL(shifts) for specified month
 def clear_all(user, month):
@@ -736,9 +748,6 @@ def account():
 
     # Highlite differents between added info and basic
     highlights = highlite(months_vacations, workers, months_updated, months)
-    print(f'HIGHLIGHTS\n{highlights}')
-    print(f'VAC\n{months_vacations}')
-    print(f'MONTH UPD\n{months_updated}')
     
     months_days = {
         'prev': month_days(years, months, 'prev'), # {days_in_month: int, days: [{day: int, weekend: bool}]]
@@ -859,12 +868,6 @@ def save_cur_month_workers():
 
     add_months_workers(session["user"], 'cur', data)
     return data
-
-# Clear generated names in cur month 
-@app.route("/account/shifts/clear_generated", methods=["POST"])
-def clear_generated():
-    if "user" not in session:
-        return {"success": False, "error": "Not logged in"}, 401
     
 # Clear all names in cur month 
 @app.route("/account/shifts/clear_all_shifts", methods=["POST"])
@@ -879,10 +882,11 @@ def clear_all_shifts():
 @app.route("/account/shifts/generate", methods=["POST"])
 def generate_shifts():
     if "user" not in session:
-        return {"success": False, "error": "Not logged in"}, 401
+        return {"success": False, "error": "Not logged in"}, 401 
     month = request.get_json().get('month')
     months, years = loaded_date
     days_in_month = month_days(years, months, month)['days_in_month']
+    days = month_days(years, months, month)['days']
     zones_info = get_places_names(session["user"]) # {Zone:{name:{shifts: int, role: str}}}
     workers_info = generation_info(session["user"], month) # {name: {exceptions: set(), shifts: int}}
     graphic = {}
@@ -895,17 +899,17 @@ def generate_shifts():
         name: info['exceptions'] 
         for name, info in workers_info.items()
     }
-    shifts_used = {} # To track shifts after booking
-    zone_heaps = {} # Heap for each zone
+    # All shifts change after booking
+    shifts_used = {} 
     for zone, names_dict in zones_info.items():
         
-        # Add used shifst and rest days for bookings
+        # Add used shifts and rest days for bookings
         rows = get_self_shifts(session["user"], month, zone)
         booked = {}
         for book in rows:
             name, day = book['name'], book['day']
-            graphic[day] = {zone: name}
-            booked[day] = {zone: name}
+            graphic[day][zone] = name
+            booked.setdefault(day, {})[zone] = name
             # Add shift as used 
             shifts_used[name] = shifts_used.get(name, 0) + 1 
             # Add rest days
@@ -913,53 +917,114 @@ def generate_shifts():
                 rest_day = day + delta
                 if 1 <= rest_day <= days_in_month:
                     worker_unavail[name].add(rest_day)
+    # Make graphic for each zone 
+    for zone, names_dict in zones_info.items():
         
         # Make heap for zone
-        heap = []
-        for name in names_dict:
-            heap.append((shifts_used[name], name))
-        heapq.heapify(heap)
-        zone_heaps[zone] = heap
+        def zone_heap():
+            heap = []
+            for name in random.sample(list(names_dict.keys()), len(names_dict)):
+                shifts_used.setdefault(name, 0)
+                heap.append((shifts_used[name], random.random(), name))
+            heapq.heapify(heap)
+            return heap
+
+        # Basic heap algo
+        def base_heap(heap):
+            for day in range(1, days_in_month + 1):
+                if graphic[day][zone] is not None:
+                    continue 
+                skip = []
+                assign = False
+                while heap:
+                    used, _, name = heapq.heappop(heap)
+
+                    # Check
+                    if used >= workers_info[name]['shifts']:
+                        continue
+                    if day in worker_unavail[name]:
+                        skip.append((used, random.random(), name))
+                        continue
+
+                    graphic.setdefault(day, {zone: None})[zone] = name  # Fill in graphic
+                    shifts_used[name] = shifts_used.get(name, 0) + 1 # Add shift as used
+                    # Add rest days
+                    for delta in (1, 2): 
+                        rest_day = day + delta
+                        if 1 <= rest_day <= days_in_month:
+                            worker_unavail[name].add(rest_day)
+                    heapq.heappush(heap, (shifts_used[name], random.random(), name)) # Back to heap
+                    assign = True
+                    break
+
+                # Push back skipped candidates
+                for sk in skip:
+                    heapq.heappush(heap, sk)
+                if not assign:
+                    graphic.setdefault(day, {zone: None})[zone] = None
+        
+        # Priem heap algo
+        def priem_heap(heap):
+            for day in range(1, days_in_month + 1):
+                if graphic[day][zone] is not None:
+                    continue 
+                skip = []
+                assign = False
+                while heap:
+                    used, _, name = heapq.heappop(heap)
+
+                    # Check
+                    if used >= workers_info[name]['shifts']:
+                        continue
+                    if (day in worker_unavail[name]
+                        or names_dict[name]['role'] == 'Day' and days[day] is False):
+                        skip.append((used, random.random(), name))
+                        continue
+
+                    graphic.setdefault(day, {zone: None})[zone] = name  # Fill in graphic
+                    shifts_used[name] = shifts_used.get(name, 0) + 1 # Add shift as used
+                    # Add rest days
+                    for delta in (1, 2): 
+                        rest_day = day + delta
+                        if 1 <= rest_day <= days_in_month:
+                            worker_unavail[name].add(rest_day)
+                    heapq.heappush(heap, (shifts_used[name], random.random(), name)) # Back to heap
+                    assign = True
+                    break
+
+                # Push back skipped candidates
+                for sk in skip:
+                    heapq.heappush(heap, sk)
+                if not assign:
+                    graphic.setdefault(day, {zone: None})[zone] = None
+
+        if zone not in ('GREEN', 'YELLOW'):
+            heap = zone_heap()
+            base_heap(heap)
+
+        if zone in ('GREEN', 'YELLOW'):
+            heap = zone_heap()
+            priem_heap(heap)
+        
+    session['graphic'] = graphic
+    return graphic
+
+# Save table to Excel file and to SQL(shifts)
+@app.route("/account/shifts/save_excel", methods=["POST"])
+def save_excel():
+    if "user" not in session:
+        return {"success": False, "error": "Not logged in"}, 401 
+    graphic_dict = session['graphic']
+    graphic = pd.DataFrame.from_dict(graphic_dict, orient='index')
+    graphic = graphic[['OTVET', 'DIAGNOS', 'EXTR', 'PLAN', 'YELLOW', 'GREEN', 'TORAC']]
     
-    # Algo for zone
-    for zone, names_dict in zones_info.items():
-        zone_heap = zone_heaps[zone]
-        for day in range(1, days_in_month + 1):
-            if graphic[day][zone] is not None:
-                continue 
-            skip = []
-            assign = False
-            while zone_heap:
-                used, name = heapq.heappop(zone_heap)
-
-                # Check
-                if used >= workers_info[name]['shifts']:
-                    continue
-                if day in worker_unavail[name]:
-                    skip.append((used, name))
-                    continue
-
-                graphic.setdefault(day, {zone: None})[zone] = name  # Fill in td
-                shifts_used[name] = shifts_used.get(name, 0) + 1 # Add shift
-                # Add rest days
-                for delta in (1, 2): 
-                    rest_day = day + delta
-                    if 1 <= rest_day <= days_in_month:
-                        worker_unavail[name].add(rest_day)
-                heapq.heappush(zone_heap, (shifts_used[name], name)) # Back to heap
-                assign = True
-                break
-
-            # Push back skipped candidates
-            for sk in skip:
-                heapq.heappush(zone_heap, sk)
-            if not assign:
-                graphic.setdefault(day, {zone: None})[zone] = None
-        print(f'UNAV!\n{worker_unavail}')
-        print(f'FINAL!\n{graphic}')
-
-    return jsonify({'graphic': graphic,
-                    'booked': booked})
+    # Save to SQL(shifts)
+    add_auto_shifts(session['user'], graphic_dict, month='cur')
+    output = io.BytesIO()
+    graphic.to_excel(output, index=True)
+    output.seek(0)
+    return send_file(output, download_name='graphic.xlsx', as_attachment=True, 
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 @app.route('/logout')
 def logout():
