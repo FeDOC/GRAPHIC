@@ -519,9 +519,9 @@ if (page === 'account-page') {
         newExceptions.forEach((exc, i) => {
             const span = document.createElement('span');
             span.textContent = exc;
-            // Compare with old: if it’s new, make green
+            // Compare with old: if it’s new, make red
             if (!oldExceptions.includes(exc)) {
-                span.style.color = 'green';
+                span.style.color = 'red';
             }
             cells[2].appendChild(span);
             if (i < newExceptions.length - 1) {

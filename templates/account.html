@@ -62,29 +62,6 @@
         </div>
         <div class="month-tab-contents">
             <div class="month-tab-content" id="prevContent">
-                <!-- Table with workers for prev month -->
-                <div class="month-workers-table-wrapper">
-                    <table class="month-workers-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Exceptions</th>
-                                <th>Shifts Number</th>
-                            </tr>
-                        </thead>
-                        <tbody> 
-                            {% for name, values in workers.items() %}
-                            <tr>
-                                <td>{{ name }}</td>
-                                <td>{{ months_vacations['prev'][name] | join(', ') 
-                                        if months_vacations['prev'][name] 
-                                        else '' }}</td>
-                                <td>{{ values['shifts']}}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
                 <!-- Shifts table -->
                 <div class="month-shift-table-wrapper">
                     <table class="month-shifts-table">
@@ -106,7 +83,11 @@
                                     <td>{{ day }}</td>
                                     <!-- Loop through each column (except first) to allow input -->
                                     {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
-                                    <td class="editable" data-name="name_{{ column }}_{{ day }}">                                    </td>
+                                        <td>
+                                            {% if column in shifts_tables['prev'][day] %}
+                                                    {{ shifts_tables['prev'][day][column][0] }}
+                                            {% endif %}
+                                        </td>
                                     {% endfor %}
                                 </tr>
                             {% endfor %}

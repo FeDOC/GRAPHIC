@@ -242,7 +242,7 @@ def create_shifts_table():
         CREATE TABLE IF NOT EXISTS shifts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             worker_id INTEGER NOT NULL,
-            month TEXT NOT NULL,
+            month INTEGER NOT NULL,
             filled TEXT NOT NULL,
             zone TEXT NOT NULL,
             day INTEGER NOT NULL,
@@ -270,7 +270,7 @@ def create_months_table():
         CREATE TABLE IF NOT EXISTS months (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             worker_id INTEGER NOT NULL,
-            month TEXT NOT NULL,
+            month INTEGER NOT NULL,
             exceptions TEXT NOT NULL,
             shifts INTEGER NOT NULL,
             FOREIGN KEY (worker_id)
@@ -279,7 +279,7 @@ def create_months_table():
             UNIQUE (worker_id)
         )
     """)
-    # cur.execute('''DROP TABLE IF EXISTS months''')
+    #cur.execute('''DROP TABLE IF EXISTS months''')
     conn.commit()
     cur.close()
     conn.close()
@@ -412,9 +412,9 @@ def update_worker(username, name, role, vacations, shifts, places):
     try:
         cur.execute("""
             UPDATE workers 
-                SET role = ?, shifts = ?, places = ?
+                SET role = ?, shifts = ?
             WHERE username = ? AND name = ?
-        """, (role, shifts, places, username, name))
+        """, (role, shifts, username, name))
         
         cur.execute("""
             SELECT id FROM workers
@@ -424,11 +424,15 @@ def update_worker(username, name, role, vacations, shifts, places):
         row = cur.fetchone()
         worker_id = row[0]
 
-        cur.executemany(""" 
-            UPDATE places 
-                SET place = ?
+        cur.execute("""
+            DELETE FROM places
             WHERE worker_id = ?
-        """, [(place, worker_id) for place in places])
+        """, (worker_id,) )
+
+        cur.executemany(""" 
+            INSERT or IGNORE INTO places(worker_id, place)
+            VALUES (?, ?)
+        """, [(worker_id, place) for place in places])
 
         if vacations:
             cur.executemany("""
@@ -460,7 +464,7 @@ def get_workers_names(user): # [{name: name[str]}]
     return rows 
 
 # Get all shifts from SQL(shifts) for months
-def get_shifts(user): 
+def get_shifts(user, months): 
 
     # [{name: name[str], filled: [self/auto], zone: [str], day: [int]}, {}] 
     # -> {day[int]: {zone[str]: [name, filled]}}
@@ -473,18 +477,18 @@ def get_shifts(user):
     conn = db_connect()
     cur = conn.cursor()
     tables = {
-        'prev': [], 
-        'cur': [], 
-        'next': []
+        'prev': {}, 
+        'cur': {}, 
+        'next': {}
     }
     cur.execute("""
         SELECT name, filled, zone, day
         FROM shifts s
             LEFT JOIN workers w ON s.worker_id = w.id
         WHERE username = ?
-            AND month = 'prev'
+            AND month = ?
         """, 
-        (user,))
+        (user, months['prev'][0]))
     change = cur.fetchall()
     tables['prev'] = transform_shifts(change)
     cur.execute("""
@@ -492,9 +496,9 @@ def get_shifts(user):
         FROM shifts s
             LEFT JOIN workers w ON s.worker_id = w.id 
         WHERE username = ?
-            AND month = 'cur'
+            AND month = ?
         """, 
-        (user,))
+        (user, months['cur'][0]))
     change = cur.fetchall()
     tables['cur'] = transform_shifts(change)
     cur.execute("""
@@ -502,14 +506,29 @@ def get_shifts(user):
         FROM shifts s
             LEFT JOIN workers w ON s.worker_id = w.id
         WHERE username = ?
-            AND month = 'prev'
+            AND month = ?
         """, 
-        (user,))
+        (user, months['next'][0]))
     change = cur.fetchall()
     tables['next'] = transform_shifts(change)
     cur.close()
     conn.close()
     return tables 
+
+# Delete excessive NOT(prev + cur + next) months from SQL(shifts) 
+def delete_excessive_shifts(user, months):
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute('''
+        DELETE FROM shifts
+        WHERE worker_id IN (
+            SELECT id FROM workers WHERE username = ?
+            ) 
+            AND month NOT IN (?, ?, ?) ''',
+        (user, *months))
+    conn.commit()
+    cur.close()
+    conn.close()
 
 # Add self filled names to SQL(shifts)
 def add_self_shifts(user, filled_self, month):
@@ -551,7 +570,7 @@ def get_self_shifts(user, month, zone): # [{name: str, day: int}]
 
 # Get all exceptions (vacations + added) and shifts from SQL(months)
 def get_months_workers_updated(user, months):
-    # -> {prev: {name: {'exceptions': str, 'shifts': int}}}
+    # -> {prev: {name: {'exceptions': str, 'shifts': int}}, cur: , next: }
     result = {}
     conn = db_connect()
     cur = conn.cursor()
@@ -563,7 +582,7 @@ def get_months_workers_updated(user, months):
             LEFT JOIN workers w ON w.id = m.worker_id
             WHERE username=? AND month=?
             ORDER BY name""", 
-            (user, month))
+            (user, months[month][0]))
         rows = cur.fetchall()
         for row in rows:
             excs = list(map(int, [d.strip() for d in row['exceptions'].split(',') if d.strip()]))
@@ -675,14 +694,13 @@ def add_auto_shifts(user, graphic, month):
                     SELECT id FROM workers
                     WHERE username = ? AND name = ?
                 ''', (user, name))
-                print(name, 'WORK')
+                
                 row = cur.fetchone()
                 worker_id = row[0]
                 cur.execute("""
                     INSERT OR IGNORE INTO shifts (worker_id, month, filled, zone, day)
                     VALUES (?, ?, ?, ?, ?)
                 """, (worker_id, month, 'auto', zone, day))
-                print(name, 'DONE')
     conn.commit()
     cur.close()
     conn.close()
@@ -746,6 +764,10 @@ def account():
     months_vacations = list_vacation_days(get_month_workers, user, years, months)
     months_updated = get_months_workers_updated(user, months)
 
+    # Delete excessive NOT(prev + cur + next) months from SQL(shifts) 
+    needed_months = tuple(val[0] for _, val in months.items())
+    delete_excessive_shifts(user, needed_months)
+
     # Highlite differents between added info and basic
     highlights = highlite(months_vacations, workers, months_updated, months)
     
@@ -753,7 +775,7 @@ def account():
         'prev': month_days(years, months, 'prev'), # {days_in_month: int, days: [{day: int, weekend: bool}]]
         'cur': month_days(years, months, 'cur'),
         'next': month_days(years, months, 'next')}
-    shifts_tables = get_shifts(session["user"])
+    shifts_tables = get_shifts(session["user"], months=months)
     
     return render_template(
         "account.html",
@@ -806,7 +828,7 @@ def update_workers():
                   name, role, 
                   vacations, 
                   shifts, 
-                  ', '.join(places))
+                  places)
 
     return {"success": True}
 
@@ -822,35 +844,19 @@ def delete():
 
     delete_worker(session["user"], name)
     return {"success": True, "message": "Deleted successfully"}
-'''
-# Update rows in month tab
-# @app.route('/account/months/update', methods=['POST'])
-# def update_month():
-#     if "user" not in session:
-#         return {"success": False, "error": "Unauthorized"}, 401
-
-#     data = request.get_json()
-#     name = data.get("name")
-#     exceptions = data.get("exceptions")
-#     shifts = data.get("shifts")
-
-#     # Update worker exceptions and shifts number for current month, name=const)
-#     update_months(session["user"], name, ', '.join(exceptions), shifts, month)
-
-#     return {"success": True}
-'''
 
 # Save names filled in cur table to SQL(shifts)
 @app.route("/account/shifts/save_cur", methods=["POST"])
 def add_shifts():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401
+    months, _= loaded_date
     filled_self = get_shifts(session["user"])['cur']
     # User submitted names, update SQL (shifts) with new values
     for zone_day, name in request.form.items():
         zone, day = zone_day.split('_')
         filled_self.setdefault(int(day), {})[zone] = name
-    add_self_shifts(session['user'], filled_self, 'cur')
+    add_self_shifts(session['user'], filled_self, month=months['cur'][0])
     return {"success": True}
 
 # Save names with exceptions and shifts from cur month to SQL (months) 
@@ -859,14 +865,14 @@ def save_cur_month_workers():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401
     data = request.get_json()
-    months, years = loaded_date
+    months, _ = loaded_date
     # month_vacations = list_vacation_days(get_month_workers, session['user'], years, months)['cur']
 
     # name = data['name']
     # exceptions = data['exceptions']
     # shifts = data['shifts']
 
-    add_months_workers(session["user"], 'cur', data)
+    add_months_workers(session["user"], months['cur'][0], data)
     return data
     
 # Clear all names in cur month 
@@ -888,17 +894,20 @@ def generate_shifts():
     days_in_month = month_days(years, months, month)['days_in_month']
     days = month_days(years, months, month)['days']
     zones_info = get_places_names(session["user"]) # {Zone:{name:{shifts: int, role: str}}}
-    workers_info = generation_info(session["user"], month) # {name: {exceptions: set(), shifts: int}}
+    workers_info = generation_info(session["user"], month=months[month][0]) # {name: {exceptions: set(), shifts: int}}
     graphic = {}
+    
     for day in range(1, days_in_month + 1):
         graphic[day] = {}
         for zone in zones_info.keys():
             graphic[day][zone] = None
+
     # To add rest days to exceptions 
     worker_unavail = { # {name: set(exceptions)} 
         name: info['exceptions'] 
         for name, info in workers_info.items()
     }
+
     # All shifts change after booking
     shifts_used = {} 
     for zone, names_dict in zones_info.items():
@@ -930,7 +939,7 @@ def generate_shifts():
             return heap
 
         # Basic heap algo
-        def base_heap(heap):
+        def base_algo(heap):
             for day in range(1, days_in_month + 1):
                 if graphic[day][zone] is not None:
                     continue 
@@ -949,7 +958,7 @@ def generate_shifts():
                     graphic.setdefault(day, {zone: None})[zone] = name  # Fill in graphic
                     shifts_used[name] = shifts_used.get(name, 0) + 1 # Add shift as used
                     # Add rest days
-                    for delta in (1, 2): 
+                    for delta in (0, 1, 2): 
                         rest_day = day + delta
                         if 1 <= rest_day <= days_in_month:
                             worker_unavail[name].add(rest_day)
@@ -964,7 +973,7 @@ def generate_shifts():
                     graphic.setdefault(day, {zone: None})[zone] = None
         
         # Priem heap algo
-        def priem_heap(heap):
+        def priem_algo(heap):
             for day in range(1, days_in_month + 1):
                 if graphic[day][zone] is not None:
                     continue 
@@ -1000,12 +1009,12 @@ def generate_shifts():
 
         if zone not in ('GREEN', 'YELLOW'):
             heap = zone_heap()
-            base_heap(heap)
+            base_algo(heap)
 
         if zone in ('GREEN', 'YELLOW'):
             heap = zone_heap()
-            priem_heap(heap)
-        
+            priem_algo(heap)
+        print(zone, worker_unavail)
     session['graphic'] = graphic
     return graphic
 
@@ -1014,12 +1023,13 @@ def generate_shifts():
 def save_excel():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401 
+    months, _ = loaded_date
     graphic_dict = session['graphic']
     graphic = pd.DataFrame.from_dict(graphic_dict, orient='index')
     graphic = graphic[['OTVET', 'DIAGNOS', 'EXTR', 'PLAN', 'YELLOW', 'GREEN', 'TORAC']]
     
     # Save to SQL(shifts)
-    add_auto_shifts(session['user'], graphic_dict, month='cur')
+    add_auto_shifts(session['user'], graphic_dict, month=months['cur'][0])
     output = io.BytesIO()
     graphic.to_excel(output, index=True)
     output.seek(0)
