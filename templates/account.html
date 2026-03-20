@@ -122,13 +122,16 @@
                                     <button class="edit-btn">Edit</button>
                                 </td>
                                 <td>{{ name }}</td>
-                                {% if months_updated['cur'] %}
+
+                                {% if name in months_updated['cur'] and months_updated['cur'][name] %}
                                     {% set days = months_updated.get('cur', {}).get(name, {}).get('exceptions', []) %}
                                 {% else %}
                                     {% set days = months_vacations.get('cur', {}).get(name, []) %}
                                 {% endif %}
+
                                 <td>
                                 {% for day in days %}
+                                
                                     {% if (name in highlights['cur'] 
                                     and day in highlights['cur'][name]['exceptions'])  %}
                                         <span style="color: red">

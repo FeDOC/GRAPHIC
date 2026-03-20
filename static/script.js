@@ -60,6 +60,7 @@ if (page === 'account-page') {
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
         nameInput.placeholder = 'Name';
+        nameInput.classList.add('js-text-input')
         nameTd.appendChild(nameInput);
         row.appendChild(nameTd);
 
@@ -287,6 +288,7 @@ if (page === 'account-page') {
         // Name cell
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
+        nameInput.classList.add('js-text-input')
         nameInput.value = cells[1].textContent;
         cells[1].textContent = '';
         cells[1].appendChild(nameInput);
@@ -675,6 +677,7 @@ if (page === 'account-page') {
                     const td = this;
                     let input = document.createElement("input");
                     input.type = "text";
+                    input.classList.add('js-text-input')
                     input.value = td.textContent.trim(); 
                     input.dataset.name = td.dataset.name; 
                     

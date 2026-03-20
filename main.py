@@ -41,8 +41,6 @@ def month_days(years, months, current_month):
 # Transform vacations to interval string 'dd.mm.yyyy(start) - dd.mm.yyyy(end), ...'
 def transform_vacations(rows):
     workers = {} #{name: {role: str, shifts: int, places: str, vacations: str}}
-    vacations_dict = defaultdict(list)
-    places_dict = defaultdict(list)
     for row in rows:
         name = row['name']
         workers[name] = {
@@ -107,7 +105,7 @@ def highlite(months_vacations, workers, months_info, months):
         for name, info in months_info[month].items():
             vacations = months_vacations[month].get(name, [])
             base_shifts = workers[name]['shifts']
-            exceptions = info['exceptions'] 
+            exceptions = info['exceptions']
             true_shifts = info['shifts']
             diff = [e for e in exceptions if e not in vacations]
             shifts = true_shifts if true_shifts != base_shifts else None
@@ -290,6 +288,20 @@ create_months_table()
 # DATABASE ACTIONS
 # ---------------------------------------------------------
 
+# Check if login password is correct
+def get_password(user):
+    conn = db_connect()
+    cur = conn.cursor()
+    cur.execute('''SELECT password 
+                    FROM users 
+                    WHERE username = ?''', 
+                (user,)
+    )
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row
+
 # Add worker in SQL(workers)
 def add_worker(user, name, role, vacations, shifts, places):
     
@@ -373,7 +385,6 @@ def get_month_workers(user, year_month):
     year, month = map(int, year_month.split('-'))
     start_date = datetime(year, month, 1).date()
     end_date = datetime(year, month, calendar.monthrange(year, month)[1]).date()
-
     # Query from SQL 
     conn = db_connect()
     cur = conn.cursor()
@@ -467,7 +478,7 @@ def get_workers_names(user): # [{name: name[str]}]
 def get_shifts(user, months): 
 
     # [{name: name[str], filled: [self/auto], zone: [str], day: [int]}, {}] 
-    # -> {day[int]: {zone[str]: [name, filled]}}
+    # -> {prev: {day[int]: {zone[str]: [name, filled]}}, cur:, next:}
     def transform_shifts(change):
         dic = {}
         for line in change:
@@ -534,7 +545,7 @@ def delete_excessive_shifts(user, months):
 def add_self_shifts(user, filled_self, month):
     conn = db_connect()
     cur = conn.cursor()
-    for day, zones in filled_self.items():
+    for day, zones in filled_self['cur'].items():
         for zone, name in zones.items():
             cur.execute(''' 
                 SELECT id FROM workers
@@ -568,7 +579,7 @@ def get_self_shifts(user, month, zone): # [{name: str, day: int}]
     conn.close()
     return rows
 
-# Get all exceptions (vacations + added) and shifts from SQL(months)
+# Get all exceptions (vacations + added) and shifts from SQL(months + vacations)
 def get_months_workers_updated(user, months):
     # -> {prev: {name: {'exceptions': str, 'shifts': int}}, cur: , next: }
     result = {}
@@ -728,19 +739,11 @@ def clear_all(user, month):
 def login():
     if request.method == "POST":
         username = request.form["username"].strip().lower()
-        password = request.form["password"].strip()
+        input_password = request.form["password"].strip()
+        real_password = get_password(username)
+        
 
-        conn = db_connect()
-        cur = conn.cursor()
-        cur.execute('''SELECT password 
-                        FROM users 
-                        WHERE username = ?''', 
-                    (username,))
-        row = cur.fetchone()
-        cur.close()
-        conn.close()
-
-        if row and row[0] == password:
+        if real_password and real_password[0] == input_password:
             session["user"] = username
             return redirect(url_for("account"))
         else:
@@ -762,8 +765,14 @@ def account():
     # Load date for month tabs
     months, years = loaded_date
     months_vacations = list_vacation_days(get_month_workers, user, years, months)
-    months_updated = get_months_workers_updated(user, months)
-
+    months_changes = get_months_workers_updated(user, months) 
+    months_updated = {'prev': {}, 'cur': {}, 'next': {}}
+    for name, info in months_changes['cur'].items():
+        days = info['exceptions']
+        vacations_with_exceptions = sorted(set(days + months_vacations['cur'][name] if name in months_vacations['cur'] else []))
+        shifts = months_changes['cur'][name]['shifts']
+        months_updated.setdefault('cur', {}).setdefault(name, {})['exceptions'] = vacations_with_exceptions
+        months_updated.setdefault('cur', {}).setdefault(name, {}).setdefault('shifts', shifts)
     # Delete excessive NOT(prev + cur + next) months from SQL(shifts) 
     needed_months = tuple(val[0] for _, val in months.items())
     delete_excessive_shifts(user, needed_months)
@@ -851,11 +860,11 @@ def add_shifts():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401
     months, _= loaded_date
-    filled_self = get_shifts(session["user"])['cur']
+    filled_self = get_shifts(session["user"], months)
     # User submitted names, update SQL (shifts) with new values
     for zone_day, name in request.form.items():
         zone, day = zone_day.split('_')
-        filled_self.setdefault(int(day), {})[zone] = name
+        filled_self['cur'].setdefault(int(day), {})[zone] = name
     add_self_shifts(session['user'], filled_self, month=months['cur'][0])
     return {"success": True}
 
@@ -881,7 +890,8 @@ def clear_all_shifts():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401
     month = request.get_json().get('month')
-    clear_all(session['user'], month)
+    months, _ = loaded_date
+    clear_all(session['user'], month=months[month][0])
     return 'Shifts deleted'
 
 # Generate shifts table in cur month 
@@ -913,7 +923,7 @@ def generate_shifts():
     for zone, names_dict in zones_info.items():
         
         # Add used shifts and rest days for bookings
-        rows = get_self_shifts(session["user"], month, zone)
+        rows = get_self_shifts(session["user"], months[month][0], zone)
         booked = {}
         for book in rows:
             name, day = book['name'], book['day']
@@ -993,7 +1003,7 @@ def generate_shifts():
                     graphic.setdefault(day, {zone: None})[zone] = name  # Fill in graphic
                     shifts_used[name] = shifts_used.get(name, 0) + 1 # Add shift as used
                     # Add rest days
-                    for delta in (1, 2): 
+                    for delta in (0, 1, 2): 
                         rest_day = day + delta
                         if 1 <= rest_day <= days_in_month:
                             worker_unavail[name].add(rest_day)
@@ -1014,7 +1024,8 @@ def generate_shifts():
         if zone in ('GREEN', 'YELLOW'):
             heap = zone_heap()
             priem_algo(heap)
-        print(zone, worker_unavail)
+    print(worker_unavail)
+        
     session['graphic'] = graphic
     return graphic
 
@@ -1061,4 +1072,4 @@ def reset():
 # ---------------------------------------------------------
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=8000, debug=True)

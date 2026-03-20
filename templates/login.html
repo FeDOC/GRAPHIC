@@ -3,22 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <title>Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
-<body>
-    <h2>Login</h2>
+<body class="auth-body">
+    <div class="auth-container">
+        
+        <h2 class="auth-title">Welcome back</h2>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, msg in messages %}
-          <p style="color:red;">{{ msg }}</p>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, msg in messages %}
+            <p class="auth-error">{{ msg }}</p>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
 
-    <form method="POST">
-        <input type="text" name="username" placeholder="Username" required><br>
-        <input type="password" name="password" placeholder="Password" required><br>
-        <button type="submit">Login</button>
-    </form>
+        <form method="POST" class="auth-form">
+            <input type="text" name="username" placeholder="Username" required class="auth-input"><br>
+            <input type="password" name="password" placeholder="Password" required class="auth-input"><br>
+            <button type="submit" class="auth-button">Login</button>
+        </form>
+        
+    </div>
 </body>
 </html>
