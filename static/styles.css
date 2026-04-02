@@ -72,95 +72,56 @@ body {
     font-size: 14px;
 }
 
-
-table {
-  width: 100%;
-  max-width: 1000px;
-  margin: 0 auto;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-th {
-  background-color: #f2f2f2;
-  padding: 5px;
-  text-align: center;
-  border: 1px solid black;
-  font-weight: bold;
-  min-width: 25px;  /* Set a minimum width for header columns */
-  font-size: 16px;
-}
-
-td {
-  padding: 2px;
-  text-align: center; /* Center content in the data cells */
-  border: 1px solid black;
-  word-wrap: break-word;
-  min-width: 25px;  /* Set a minimum width for data columns */
-  max-width: 100px;
-}
-
-.weekend {
-  background-color: #ffcccc; /* Light red background for weekends */
-}
-
-th:first-child, td:first-child {
-  max-width: 30px;
-  text-align: center;
-  font-size: 16px;
-}
-
-.js-text-input[type="text"] {
-  width: 70%;  /* Adjust width to make it tighter */
-  padding: 3px; /* Reduce padding for a more compact look */
-  font-size: 12px; /* Make the text smaller */
-  text-align: center; /* Center the text inside the input */
-  border: 1px solid #ccc;
-  border-radius: 8px;
-}
-
-.autocomplete-suggestions {
-    position: absolute;   /* floating */
-    display: none;        /* hidden initially */
-    border: 1px solid #ccc;
-    background: #fff;
-    max-height: 200px;
-    overflow-y: auto;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    z-index: 1000;
-}
-
-.autocomplete-option {
-    padding: 5px;
-    cursor: pointer;
-}
-
-.autocomplete-option:hover {
-    background-color: #f0f0f0;
-}
-
 /* ------- */
-/* Account */
+/* ACCOUNT */
 /* ------- */
 
-    /* --------------------- */
-    /* People and Month Tabs */
-    /* --------------------- */
+#account-page {
+    padding: 30px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+#account-page h2 {
+    font-size: 28px;
+    margin-bottom: 10px;
+}
+
+#account-page a {
+    display: inline-block;
+    margin-bottom: 20px;
+    color: #6366f1;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+    /* ---- */
+    /* TABS */
+    /* ---- */
+
 .tabs {
     display: flex;
-    margin-bottom: 20px;
+    gap: 10px;
+    margin-bottom: 25px;
 }
 
 .tab {
-    margin-right: 20px;
+    padding: 10px 18px;
+    border-radius: 12px;
+    background: #f1f5f9;
     cursor: pointer;
-    padding: 10px;
-    border-bottom: 2px solid transparent;
+    transition: 0.2s;
+    font-weight: 500;
+}
+
+.tab:hover {
+    background: #e2e8f0;
 }
 
 .tab.active {
-    border-bottom: 2px solid #007bff;
-    font-weight: bold;
+    background: linear-gradient(135deg, #6366f1, #818cf8);
+    color: white;
+    box-shadow: 0 6px 16px rgba(99,102,241,0.3);
 }
 
 .tab-content {
@@ -169,150 +130,499 @@ th:first-child, td:first-child {
 
 .tab-content.active {
     display: block;
+    background: white;
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.06);
 }
 
-    /* ----------- */
-    /* Workers Tab */
-    /* ----------- */
+    /* ------------ */
+    /* TABS CONTENT */
+    /* ------------ */
 
-#workers-table {
-    margin-top: 10px;
-    border-collapse: collapse;
-    width: 100%;
-    table-layout: auto;
+        /* ------- */
+        /* BUTTONS */
+        /* ------- */
+
+button {
     border: none;
+    border-radius: 12px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: 0.2s;
 }
 
-#workers-table th,
-#workers-table td {
-    border: 1px solid #ccc;
-    padding: 5px;
+button:hover {
+    transform: translateY(-1px);
+}
+
+/* Primary */
+button[type="submit"],
+#add-person-btn {
+    background: linear-gradient(135deg, #6366f1, #818cf8);
+    color: white;
+}
+
+.action-btn.edit {
+    background: #e0f2fe;
+}
+
+.action-btn.apply {
+    background: #dcfce7;
+}
+
+.action-btn.delete {
+    background: #fee2e2;
+}
+
+        /* ----------- */
+        /* WORKERS TAB */
+        /* ----------- */
+
+
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 14px;
+    overflow: hidden;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+th {
+    background: #f8fafc;
+    padding: 10px;
+    font-weight: 600;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+td {
+    padding: 8px;
+    background: white;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+tr:hover td {
+    background: #f8fafc;
+}
+
+.weekend td {
+    color: #b91c1c;
+    background: #f0d3d3;
+}
+
+input,
+textarea {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 6px 8px;
+    font-family: inherit;
+    background: #f8fafc;
+    transition: 0.2s;
+    width: 80%;
+    min-width: 60px;
+    max-width: 130px;
+}
+
+textarea {
+    width: 90%;
+    min-width: 200px;
+    max-width: 400px;   
+    resize: vertical;   
+}
+
+input:focus,
+textarea:focus {
+    outline: none;
+    border-color: #6366f1;
+    background: white;
+}
+
+
+#workers-table td:first-child {
+    text-align: center;
+    width:15%
+}
+
+#workers-table td:first-child > *{
+    display: inline-flex;
+    margin-right: 5px;
+}
+
+#workers-table td:nth-child(3) {
+    width: 7%;
     text-align: center;
 }
 
-#workers-table th {
-    background-color: #f2f2f2;
-}
- 
-#workers-table td:first-child,
-#workers-table th:first-child {
-    width: 11%;
-    border: none;
-    background: transparent;
+.role-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-#workers-table th:nth-child(4),
-#workers-table td:nth-child(4) {
-    width: 15%;
+.role-radio {
+    display: none;
 }
 
-#workers-table th:nth-child(5),
+.role-label {
+    padding: 6px 12px;
+    border-radius: 10px;
+    background: #f1f5f9;
+    cursor: pointer;
+    font-size: 13px;
+    transition: 0.2s;
+    border: 1px solid transparent;
+}
+
+.role-label:hover {
+    background: #e2e8f0;
+}
+
+.role-radio:checked + .role-label {
+    background: linear-gradient(135deg, #6366f1, #818cf8);
+    color: white;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+}
+
 #workers-table td:nth-child(5) {
     width: 6%;
+    text-align: center;
 }
 
-#workers-table th:nth-child(6),
-#workers-table td:nth-child(6) {
-    width: 30%;
+.checkbox-container {
+    display: flex;   
+    flex-wrap: wrap;     
+    gap: 10px;
+    padding: 5px;
 }
 
-    /* ---------- */
-    /* Months Tab */
-    /* ---------- */
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
 
-        /* ---------- */
-        /* Month Tabs */
-        /* ---------- */
+.checkbox-item:hover {
+    background-color: #f0f0f0;
+}
 
-.month-tab {
-    display: inline-block;
-    padding: 8px 16px;
+input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
     cursor: pointer;
 }
 
+        /* ---------- */
+        /* MONTHS TAB */
+        /* ---------- */
+
+            /* ----------- */
+            /* MONTHS TABS */
+            /* ----------- */
+
+#months {
+    padding-top: 20px;
+}
+
+.months-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.month-tab {
+    padding: 12px 24px;
+    border-radius: 16px;
+    background: #f8fafc;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 15px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    color: #475569;
+}  
+
+.month-tab:hover {
+    background: #f1f5f9;
+    transform: translateY(-2px);
+}
+
 .month-tab.active {
-    font-weight: bold;
-    border-bottom: 2px solid #000;
+    background: linear-gradient(135deg, #6366f1, #818cf8);
+    color: white;
+    box-shadow: 0 10px 20px rgba(99, 102, 241, 0.25);
+    border-color: #6366f1;
 }
 
 .month-tab-content {
     display: none;
-    padding-top: 20px;
+    gap: 28px;
+    background: white;
+    padding: 28px;
+    border-radius: 24px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
 }
 
 .month-tab-content.active {
     display: flex;
-    gap: 20px;
+    flex-wrap: wrap;
 }
 
-        /* ------------------ */
-        /* Month Tabs Content */
-        /* ------------------ */
-
-.month-shift-table-wrapper-and-buttons {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}        
-
-.month-shift-table-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-}
+            /* ------- */
+            /* BUTTONS */
+            /* ------- */
 
 .month-workers-table-wrapper-and-button {
+    flex: 1 1 380px;
+    min-width: 380px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    flex: 0 0 30%;
+    gap: 16px;
 }
+
 .month-workers-table-button {
     display: flex;
     justify-content: center;
-    gap: 10px;
 }
+
+.month-workers-table-button button {
+    padding: 12px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #6366f1, #818cf8);
+    color: white;
+    border-radius: 14px;
+    box-shadow: 0 8px 16px rgba(99, 102, 241, 0.2);
+}
+
+.month-workers-table-button button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(99, 102, 241, 0.3);
+}
+
+            /* ------------------- */
+            /* MONTH WORKERS TABLE */
+            /* ------------------- */
 
 .month-workers-table {
-    border-collapse: collapse;
     width: 100%;
-    table-layout: auto;
-    border: none;
-}
-
-.month-workers-table th,
-.month-workers-table td {
-    border: 1px solid #ccc;
-    padding: 3px;
-    text-align: center;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    background: white;
 }
 
 .month-workers-table th {
-    background-color: #f2f2f2;
-}
- 
-.month-workers-table th:first-child,
-.month-workers-table td:first-child {
-    width: auto;
-    border: none;
-    background: transparent;
+    background: #f8fafc;
+    padding: 16px 12px;
+    font-weight: 700;
+    color: #334155;
+    text-align: center;
+    font-size: 14px;
+    border-bottom: 2px solid #e2e8f0;
 }
 
-.month-workers-table th:nth-child(4),
-.month-workers-table td:nth-child(4) {
+.month-workers-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.month-workers-table td:first-child {
+    width: 10%;
+}
+
+.month-workers-table td:nth-child(2) {
     width: 20%;
 }
 
-.month-shift-table-wrapper {
-    flex: 1;         /* Shift table takes the rest */
+.month-workers-table td:last-child {
+    width: 10%;
+    text-align: center;
 }
 
-.booked {
-    background-color: #76b471; /* soft green */
-    transition: background-color 0.3s ease;
+.month-workers-table tr:last-child td {
+    border-bottom: none;
 }
 
-.hidden {
+.month-workers-table tr:hover td {
+    background: #f8fafc;
+}
+
+.month-workers-table .edit-btn {
+    padding: 6px 14px;
+    font-size: 13px;
+    background: #e0f2fe;
+    color: #0369a1;
+    border-radius: 10px;
+}
+
+.month-workers-table .edit-btn:hover {
+    background: #bae6fd;
+}
+
+            /* ------------ */
+            /* SHIFTS TABLE */
+            /* ------------ */
+
+.month-shift-table-wrapper-and-buttons {
+    flex: 1 0 800px;
+    min-width: 800px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.month-shift-table-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+}
+
+.month-shift-table-buttons button {
+    padding: 11px 20px;
+    font-size: 14.5px;
+    font-weight: 600;
+    border-radius: 14px;
+    transition: all 0.25s ease;
+}
+
+.month-shift-table-buttons button:hover {
+    transform: translateY(-2px);
+}
+
+#cur-save-form button,
+#cur-generate-form button {
+    background: linear-gradient(135deg, #10b981, #34d399);
+    color: white;
+}
+
+#cur-clear-generated-form button {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
+    color: white;
+}
+
+#cur-clear-all-form button {
+    background: linear-gradient(135deg, #ef4444, #f87171);
+    color: white;
+}
+
+#cur-save-excel button {
+    background: linear-gradient(135deg, #6366f1, #818cf8);
+    color: white;
+}
+
+.month-shifts-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.07);
+    background: white;
+}
+
+.month-shifts-table th {
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    padding: 16px 10px;
+    font-weight: 700;
+    color: #1e2937;
+    text-align: center;
+    font-size: 14px;
+    border-bottom: 3px solid #e0e7ff;
+    white-space: nowrap;
+}
+
+.month-shifts-table td {
+    padding: 12px 8px;
+    text-align: center;
+    border-bottom: 1px solid #f1f5f9;
+    min-width: 70px;
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.month-shifts-table tr:hover td {
+    background: #f8fafc;
+}
+
+.month-shifts-table .weekend:hover td {
+    background: #e7aeae;
+}
+
+.month-shifts-table .booked {
+    background: #d1faee !important;
+    font-weight: 700;
+    color: #065f46;
+    position: relative;
+}
+
+.month-shifts-table .booked::after {
+    content: "✓";
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 11px;
+    opacity: 0.7;
+}
+
+.cur-editable {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.cur-editable:hover {
+    background: #e1f3ff !important;
+}
+
+.weekend .cur-editable:hover {
+    background: #e4a0a0 !important;
+}
+
+            /* ------------ */
+            /* AUTOCOMPLITE */
+            /* ------------ */
+
+.autocomplete-suggestions {
+    position: absolute;
     display: none;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+                0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    max-height: 240px;
+    overflow-y: auto;
+    z-index: 10000;
+    padding: 6px 0;
+    margin-top: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: #c3d0e0 transparent;
+}
+
+.autocomplete-option {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 15px;
+    color: #1e293b;
+    transition: all 0.2s ease;
+    border-radius: 10px;
+    margin: 2px 6px;
+}
+
+.autocomplete-option:hover,
+.autocomplete-option:focus {
+    background: #f0f4ff;
+    color: #4f46e5;
+    padding-left: 20px;
+    font-weight: 600;
 }

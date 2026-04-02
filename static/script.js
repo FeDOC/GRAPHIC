@@ -42,7 +42,6 @@ if (page === 'account-page') {
 
         // Action buttons
         const actionTd = document.createElement('td');
-        actionTd.style.width = '7%'
         const applyBtn = document.createElement('button');
         applyBtn.textContent = 'Apply'
         applyBtn.classList.add('action-btn', 'apply')
@@ -67,18 +66,13 @@ if (page === 'account-page') {
         // Role input
         const roleTd = document.createElement('td');
         const container_radio = document.createElement('div');
-        container_radio.style.display = "flex";
-        container_radio.style.gap = "10px";
-        container_radio.style.alignItems = 'center';
-        container_radio.style.justifyContent = 'center';
+        container_radio.classList.add('role-group');
         const roleName = `role-${Date.now()}`;
         ['Day', 'Shifter'].forEach(role => {
             const item = document.createElement('div');
-            item.style.display = 'flex';
-            item.style.flexDirection = "column";
-            item.style.alignItems = "center";
-
+            item.classList.add('role-item');
             const radio = document.createElement('input');
+            radio.classList.add('role-radio');
             radio.type = 'radio';
             radio.value = role;
             radio.name = roleName;
@@ -94,6 +88,7 @@ if (page === 'account-page') {
             });
 
             const label = document.createElement('label');
+            label.classList.add('role-label');
             label.htmlFor = radio.id;
             label.textContent = role;
 
@@ -107,16 +102,8 @@ if (page === 'account-page') {
         
         // Vacations dates
         const vacationTd = document.createElement('td');
-        vacationTd.style.width = '20%'
         const vacationInput = document.createElement('textarea');
-        vacationInput.style.minHeight = '30px';
-        vacationInput.style.width = '100%';
-        vacationInput.style.boxSizing = 'border-box';
         vacationInput.placeholder = 'DD.MM.YY - DD.MM.YY, ...';
-        vacationInput.addEventListener('input', () => {
-            vacationInput.style.height = 'auto';
-            vacationInput.style.height = vacationInput.scrollHeight + 'px';
-        });
         vacationTd.appendChild(vacationInput);
         vacationInput.dispatchEvent(new Event('input'));
         row.appendChild(vacationTd);
@@ -127,24 +114,18 @@ if (page === 'account-page') {
         shiftsInput.type = 'number';
         shiftsInput.min = 0;
         shiftsInput.value = 0;
-        shiftsInput.style.width = '60%';
-        //shiftsInput.style.boxSizing = 'border-box';
         shiftsTd.appendChild(shiftsInput);
         row.appendChild(shiftsTd);
 
         // Place (multi-select)
         const placeTd = document.createElement('td');
-        placeTd.style.width = '40%';
-        const container_checkbox = document.createElement('div'); // Container for checkboxes
-        container_checkbox.style.display = "flex";
-        container_checkbox.style.gap = "10px";
-        container_checkbox.style.alignItems = 'center';
-        container_checkbox.style.justifyContent = 'center';
-        ['OTVET','DIAGNOS','EXTR','PLAN','GREEN','YELLOW', 'TORAC'].forEach(zone => {
+        const container_checkbox = document.createElement('div'); 
+        container_checkbox.className = 'checkbox-container';
+
+        // Containers with checkbox for each ZONE
+        ['OTVET','DIAGNOS','EXTR','PLAN','GREEN','YELLOW', 'TORAC'].forEach(zone => { 
             const item = document.createElement('div');
-            item.style.display = 'flex';
-            item.style.flexDirection = "column";
-            item.style.alignItems = "center";
+            item.className = 'checkbox-item';
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -157,9 +138,8 @@ if (page === 'account-page') {
 
             item.appendChild(checkbox);
             item.appendChild(label);
-
             container_checkbox.appendChild(item);
-        }); // Containers with checkbox for each ZONE 
+        });  
 
         placeTd.appendChild(container_checkbox);
         row.appendChild(placeTd);
@@ -280,7 +260,6 @@ if (page === 'account-page') {
         const cells = row.querySelectorAll('td');
         
         // Action cell
-        cells[0].style.width = '7%'
         editBtn.textContent = 'Apply';
         // Remove delete button when edit
         deleteBtn.style.display = 'none';
@@ -295,10 +274,6 @@ if (page === 'account-page') {
 
         // Role cell
         const roleContainer = document.createElement('div');
-        roleContainer.style.display = 'flex';
-        roleContainer.style.gap = '10px';
-        roleContainer.style.alignItems = 'center';
-        roleContainer.style.justifyContent = 'center';
         const roleName = `role-edit-${Date.now()}`;
         ['Day', 'Shifter'].forEach(role => {
             const radio = document.createElement('input');
@@ -309,7 +284,6 @@ if (page === 'account-page') {
             const label = document.createElement('label');
             label.textContent = role;
             const wrapper = document.createElement('div');
-            wrapper.style.textAlign = 'center';
             wrapper.appendChild(radio);
             wrapper.appendChild(label);
             roleContainer.appendChild(wrapper);
@@ -331,14 +305,6 @@ if (page === 'account-page') {
         const vacInput = document.createElement('textarea');
         vacInput.value = cells[3].textContent;
         cells[3].textContent = '';
-        cells[3].style.width = '20%';
-        vacInput.style.width = '100%';
-        vacInput.style.boxSizing = 'border-box';
-        vacInput.style.overflow = 'hidden';
-        vacInput.addEventListener('input', () => {
-            vacInput.style.height = 'auto';
-            vacInput.style.height = vacInput.scrollHeight + 'px';
-        });
         cells[3].appendChild(vacInput);
         vacInput.dispatchEvent(new Event('input'));
 
@@ -346,16 +312,12 @@ if (page === 'account-page') {
         const shiftsInput = document.createElement('input');
         shiftsInput.type = 'number';
         shiftsInput.min = 0;
-        shiftsInput.style.width = '50%';
         shiftsInput.value = parseInt(cells[4].textContent) || 0;
-        cells[4].style.width = '8%';
         cells[4].textContent = '';
         cells[4].appendChild(shiftsInput);
 
         // Places
         const placeContainer = document.createElement('div');
-        placeContainer.style.display = 'flex';
-        placeContainer.style.gap = '10px';
         const originalPlaces = cells[5].textContent.split(',').map(x => x.trim());
         ['OTVET','DIAGNOS','EXTR','PLAN','GREEN','YELLOW','TORAC'].forEach(zone => {
             const checkbox = document.createElement('input');
@@ -365,13 +327,11 @@ if (page === 'account-page') {
             const label = document.createElement('label');
             label.textContent = zone;
             const wrapper = document.createElement('div');
-            wrapper.style.textAlign = 'center';
             wrapper.appendChild(checkbox);
             wrapper.appendChild(label);
             placeContainer.appendChild(wrapper);
         });
         cells[5].textContent = '';
-        cells[5].style.width = '40%'
         cells[5].appendChild(placeContainer);
     }
 
@@ -466,26 +426,14 @@ if (page === 'account-page') {
         const cells = row.querySelectorAll('td');
 
         // Action cell
-        cells[0].style.width = '15%'
         editBtn.textContent = 'Apply';
 
         // Exceptions Dates cell 
         const excInput = document.createElement('textarea');
-        excInput.style.width = '100%';
-        excInput.style.font = 'inherit';
-        excInput.style.paddingBottom = '5px';
         excInput.rows = excInput.value.split('\n').length;
-        excInput.style.boxSizing = 'border-box';
-        excInput.style.display = 'block';
         excInput.value = cells[2].textContent;
-        excInput.addEventListener('input', () => { // resizing if add new lines
-            excInput.style.height = 'auto';
-            excInput.style.height = excInput.scrollHeight + 'px';
-        });
         cells[2].dataset.oldValue = cells[2].textContent; // save old text to compare in apply 
         cells[2].textContent = '';
-        cells[2].style.padding = '1px';
-        cells[2].style.width = '40%'
         cells[2].appendChild(excInput);
         excInput.dispatchEvent(new Event('input'));
 
@@ -493,9 +441,7 @@ if (page === 'account-page') {
         const shiftsInput = document.createElement('input');
         shiftsInput.type = 'number';
         shiftsInput.min = 0;
-        shiftsInput.style.width = '40%';
         shiftsInput.value = parseInt(cells[3].textContent);
-        cells[3].style.width = '8%';
         cells[3].dataset.oldValue = cells[3].textContent;
         cells[3].textContent = '';
         cells[3].appendChild(shiftsInput);
@@ -519,13 +465,14 @@ if (page === 'account-page') {
         // Exceptions
         cells[2].textContent = '';
         newExceptions.forEach((exc, i) => {
-            const span = document.createElement('span');
-            span.textContent = exc;
+            const excSpan = document.createElement('span');
+            excSpan.textContent = exc;
             // Compare with old: if it’s new, make red
             if (!oldExceptions.includes(exc)) {
-                span.style.color = 'red';
+                excSpan.style.color = 'red';
+                excSpan.style.fontWeight = 600;
             }
-            cells[2].appendChild(span);
+            cells[2].appendChild(excSpan);
             if (i < newExceptions.length - 1) {
                 cells[2].appendChild(document.createTextNode(', '));
             }
@@ -537,6 +484,7 @@ if (page === 'account-page') {
         shiftSpan.textContent = newShifts;
         if (oldShifts !== newShifts) {
             shiftSpan.style.color = 'green';
+            shiftSpan.style.fontWeight = 600;
         }
         cells[3].appendChild(shiftSpan);
 
@@ -694,18 +642,22 @@ if (page === 'account-page') {
                             return;
                         }
 
-                        const matches = names.filter(name => name.toLowerCase().includes(value));
+                        const matches = names.filter(name => name.toLowerCase().startsWith(value));
+                        
+                        if (matches.length === 0) {
+                            suggestionBox.style.display = "none";
+                            return;
+                        }
+
                         matches.forEach(match => {
                             let option = document.createElement("div");
                             option.classList.add("autocomplete-option");
                             option.textContent = match;
-
                             option.addEventListener("mousedown", function () {
                                 input.value = match;
                                 td.innerHTML = match;  // Save to table cell (td)
                                 suggestionBox.style.display = "none";
                             });
-
                             suggestionBox.appendChild(option);
                         });
 
