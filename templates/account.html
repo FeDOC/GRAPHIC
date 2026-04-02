@@ -48,23 +48,26 @@
 
     <!-- Month tab -->
     <div class="tab-content" id="months" >
+
+        <!-- Months tabs -->
         <div class="months-tabs">
             <!-- data-tab for content, id for name of tab -->
-            <div class="month-tab" data-tab="prevContent" id="prevTab">
-                {{months.prev[1]}} {{years.prev}}
-            </div>
-            <div class="month-tab active" data-tab="currentContent" id="currentTab">
+            <div class="month-tab" data-tab="curContent" id="curTab">
                 {{months.cur[1]}} {{years.cur}}
             </div>
-            <div class="month-tab" data-tab="nextContent" id="nextTab">
+            <div class="month-tab active" data-tab="nextContent" id="nextTab">
                 {{months.next[1]}} {{years.next}}
             </div>
         </div>
+
+        <!-- Month tab content -->
         <div class="month-tab-contents">
-            <div class="month-tab-content" id="prevContent">
+
+            <!-- Current month -->
+            <div class="month-tab-content" id="curContent">
                 <!-- Shifts table -->
-                <div class="month-shift-table-wrapper">
-                    <table class="month-shifts-table">
+                <div class="month-shift-table-wrapper current">
+                    <table class="month-shift-table current">
                         <thead>
                             <tr>
                                 <th>Day</th>
@@ -78,14 +81,14 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for day, weekend in months_days['prev']['days'].items() %}
+                            {% for day, weekend in months_days['cur']['days'].items() %}
                                 <tr class="{% if weekend %}weekend{% endif %}">
                                     <td>{{ day }}</td>
                                     <!-- Loop through each column (except first) to allow input -->
                                     {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
                                         <td>
-                                            {% if column in shifts_tables['prev'][day] %}
-                                                    {{ shifts_tables['prev'][day][column][0] }}
+                                            {% if column in shifts_tables['cur'][day] %}
+                                                    {{ shifts_tables['cur'][day][column][0] }}
                                             {% endif %}
                                         </td>
                                     {% endfor %}
@@ -95,18 +98,20 @@
                     </table>
                 </div>
             </div> 
-            <div class="month-tab-content active" id="currentContent">
+
+            <!-- Next month -->
+            <div class="month-tab-content active" id="nextContent">
                 
-                <!-- Table with workers for cur month -->
+                <!-- Table with workers for next month -->
                 <div class="month-workers-table-wrapper-and-button">
                     <div class="month-workers-table-button">
-                        <form id="cur-workers-save-form">
-                            <button name='cur-workers-save-names' type="submit">Save Names</button>
+                        <form id="next-workers-save-form">
+                            <button name='next-workers-save-names' type="submit">Save Names</button>
                         </form>
                     </div>
                     
-                    <!-- Table with workers for cur month -->
-                    <table class="month-workers-table cur">
+                    <!-- Table with workers for next month -->
+                    <table class="month-workers-table next">
                         <thead>
                             <tr>
                                 <th></th>
@@ -123,17 +128,17 @@
                                 </td>
                                 <td>{{ name }}</td>
 
-                                {% if name in months_updated['cur'] and months_updated['cur'][name] %}
-                                    {% set days = months_updated.get('cur', {}).get(name, {}).get('exceptions', []) %}
+                                {% if name in months_updated['next'] and months_updated['next'][name] %}
+                                    {% set days = months_updated.get('next', {}).get(name, {}).get('exceptions', []) %}
                                 {% else %}
-                                    {% set days = months_vacations.get('cur', {}).get(name, []) %}
+                                    {% set days = months_vacations.get('next', {}).get(name, []) %}
                                 {% endif %}
 
                                 <td>
                                 {% for day in days %}
                                 
-                                    {% if (name in highlights['cur'] 
-                                    and day in highlights['cur'][name]['exceptions'])  %}
+                                    {% if (name in highlights['next'] 
+                                    and day in highlights['next'][name]['exceptions'])  %}
                                         <span style="color: red">
                                             {{ day }}
                                         </span>
@@ -146,10 +151,10 @@
                                 {% endfor %}
                                 </td>
                                 <td>
-                                    {% if (name in highlights['cur']
-                                    and highlights['cur'][name]['shifts'] is not none) %}
+                                    {% if (name in highlights['next']
+                                    and highlights['next'][name]['shifts'] is not none) %}
                                         <span style="color:green">
-                                            {{ highlights['cur'][name]['shifts'] }}
+                                            {{ highlights['next'][name]['shifts'] }}
                                         </span>
                                     {% else %}
                                         {{ values['shifts'] }}
@@ -160,26 +165,31 @@
                         </tbody>
                     </table>
                 </div>
+
                 <!-- Shifts table and buttons -->
                 <div class="month-shift-table-wrapper-and-buttons hidden" 
-                    id="cur-month-shift-table-wrapper-and-buttons">
+                    id="next-month-shift-table-wrapper-and-buttons">
+
+                    <!-- Buttons -->
                     <div class="month-shift-table-buttons">
-                        <form class='shifts-save-form' id="cur-save-form">
+                        <form class='shifts-save-form' id="next-save-form">
                             <button type="submit">Save Names</button>
                         </form>
-                        <form class='generate-form' id='cur-generate-form'>
+                        <form class='generate-form' id='next-generate-form'>
                             <button type="submit">Generate Table</button>
                         </form>
-                        <form class='clear-generated-form' id="cur-clear-generated-form">
+                        <form class='clear-generated-form' id="next-clear-generated-form">
                             <button type="submit">Clear Generated</button>
                         </form>
-                        <form class='clear-all-form' id="cur-clear-all-form">
+                        <form class='clear-all-form' id="next-clear-all-form">
                             <button type="submit">Clear All</button>
                         </form>
-                        <form class='save-excel' id="cur-save-excel">
+                        <form class='save-excel' id="next-save-excel">
                             <button type="submit">Save to Excel</button>
                         </form>
                     </div>
+
+                    <!-- Table -->
                     <div class="month-shift-table-wrapper">
                         <table class="month-shifts-table">
                             <thead>
@@ -195,19 +205,19 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for day, weekend in months_days['cur']['days'].items() %}
+                                {% for day, weekend in months_days['next']['days'].items() %}
                                     <tr class="{% if weekend %}weekend{% endif %}">
                                         <td>{{ day }}</td>
                                         
                                         <!-- Loop through each column (except first) to allow input -->
                                         {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
-                                        <td class="cur-editable 
-                                        {% if shifts_tables['cur'].get(day, {}).get(column, [None, None])[1] == 'self' %}        
+                                        <td class="next-editable 
+                                        {% if shifts_tables['next'].get(day, {}).get(column, [None, None])[1] == 'self' %}        
                                             booked    
                                         {% endif %}" data-name="{{ column }}_{{ day }}">
-                                            {% if day in shifts_tables['cur'] %}
-                                                {% if column in shifts_tables['cur'][day] %}
-                                                    {{ shifts_tables['cur'][day][column][0] }}
+                                            {% if day in shifts_tables['next'] %}
+                                                {% if column in shifts_tables['next'][day] %}
+                                                    {{ shifts_tables['next'][day][column][0] }}
                                                 {% endif %}
                                             {% endif %}
                                         </td>
@@ -216,69 +226,9 @@
                                 {% endfor %}
                             </tbody>
                         </table>
-                </div>
+                    </div>
                 </div> 
-                
             </div>
-            <div class="month-tab-content" id="nextContent">
-                <!-- Table with workers for next month -->
-                <div class="month-workers-table-wrapper">
-                    <!-- Table with workers for next month -->
-                    <table class="month-workers-table">
-                        <thead>
-                            <tr>
-                                <th></th>
-                                <th>Name</th>
-                                <th>Exceptions</th>
-                                <th>Shifts Number</th>
-                            </tr>
-                        </thead>
-                        <tbody> 
-                            {% for name, values in workers.items() %}
-                            <tr>
-                                <td>
-                                    <button class="edit-btn">Edit</button>
-                                </td>
-                                <td>{{ name }}</td>
-                                <td>{{ months_vacations['next'][name] | join(', ') 
-                                        if months_vacations['next'][name] 
-                                        else '' }}</td>
-                                <td>{{ values['shifts']}}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <!-- Shifts table -->
-                <div class="month-shift-table-wrapper">
-                    <table class="month-shifts-table">
-                        <thead>
-                            <tr>
-                                <th>Day</th>
-                                <th>OTVET</th>
-                                <th>DIAGNOS</th>
-                                <th>EXTR</th>
-                                <th>PLAN</th>
-                                <th>GREEN</th>
-                                <th>YELLOW</th>
-                                <th>TORAC</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for day, weekend in months_days['next']['days'].items() %}
-                                <tr class="{% if weekend %}weekend{% endif %}">
-                                    <td>{{ day }}</td>
-                                    <!-- Loop through each column (except first) to allow input -->
-                                    {% for column in ["OTVET", "DIAGNOS", "EXTR", "PLAN", "GREEN", "YELLOW", "TORAC"] %}
-                                    <td class="editable" data-name="name_{{ column }}_{{ day }}">                                    </td>
-                                    {% endfor %}
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
         </div>
     </div>
 

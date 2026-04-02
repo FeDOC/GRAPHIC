@@ -12,29 +12,30 @@ app.config.from_object(Config)
 # HELPER FUNCTIONS
 # ---------------------------------------------------------
 
-# Load years and months for prev, cur, next tabs
+# Load years and months for cur and next tabs
 def load_date():
     now = datetime.now()
-    # months: {prev: tuple[int, str], cur:, next:} 
+    # months: {cur: tuple[int, str], next:} 
     months = { 
-        'prev': ((now.month - 1) if (now.month - 1) > 0 else 12, calendar.month_name[(now.month - 1) if (now.month - 1) > 0 else 12]),
         'cur': (now.month, calendar.month_name[now.month]),
         'next': ((now.month + 1) if (now.month + 1) < 13 else 1, calendar.month_name[(now.month + 1) if (now.month + 1) < 13 else 1])
     }
-    # years: {prev: int, cur:, next:}
+    # years: {cur: int, next:}
     years = {
-        'prev': now.year if now.month > 1 else now.year - 1,
         'cur': now.year,
         'next': now.year if now.month < 12 else now.year + 1,
     } 
     return months, years
 loaded_date = load_date()
 
-def month_days(years, months, current_month):
-    days_in_month = calendar.monthrange(years[current_month], months[current_month][0])[1]
+# Returns number of days in month and 
+def month_days(years, months, needed_month): 
+    # {days_in_month: int, days: {int(day): bool(weekend)}}
+    days_in_month = calendar.monthrange(years[needed_month], months[needed_month][0])[1]
     days = {
-        day: datetime(years[current_month], months[current_month][0], day).weekday() >= 5
-        for day in range(1, days_in_month + 1)}
+        day: datetime(years[needed_month], months[needed_month][0], day).weekday() >= 5
+        for day in range(1, days_in_month + 1)
+    }
     return {'days_in_month': days_in_month, 
             'days': days}
 
@@ -60,7 +61,7 @@ def transform_vacations(rows):
 # Days of vacations for worker for month tab
 def list_vacation_days(get_month_workers, user, years, months): 
     # get_month_workers[func], user[str], years[dict], months[dict] 
-    # ->  {prev: {'name': days[str]}, cur:, next:}  
+    # ->  {cur: {'name': days[str]}, next:}  
 
     # Define month bounds
     def month_bounds(year, month):
@@ -98,7 +99,9 @@ def list_vacation_days(get_month_workers, user, years, months):
                                                             month_start, month_end))
     return months_vacations
 
+# Highlite self added rest dates (next month workers table)
 def highlite(months_vacations, workers, months_info, months):
+    # -> {cur: {name: {exceptions: [list], shifts: int}}, next:...}
     result = {}
     for month in months:
         result[month] = {}
@@ -129,6 +132,7 @@ def parse_vacations(vacations): # ["date - date", ...] -> [(datetime.date, datet
             raise ValueError("Invalid date format")    
     return res
 
+# Handle errors
 @app.errorhandler(ValueError)
 def _(e):
     return jsonify(ok=False, error=str(e)), 400
@@ -141,6 +145,7 @@ def _(e):
 # SQLite DATABASE
 # ---------------------------------------------------------
 
+# Connect to DB
 def db_connect():
     conn = sqlite3.connect("database.db", check_same_thread=False)
     conn.execute("PRAGMA foreign_keys = ON")
@@ -192,6 +197,7 @@ def create_workers_table():
     conn.close()
 create_workers_table()
 
+# Create SQL table (vacations) for workers' vacations
 def create_vacations_table():
     conn = db_connect()
     cur = conn.cursor()
@@ -212,6 +218,7 @@ def create_vacations_table():
     conn.close()
 create_vacations_table()
 
+# Create SQL table (places) for workers' places
 def create_places_table():
     conn = db_connect()
     cur = conn.cursor()
@@ -232,7 +239,7 @@ def create_places_table():
     conn.close()
 create_places_table()
 
-# Create SQL table (shifts) for dates and zones for names for specified month (prev, cur, next)
+# Create SQL table (shifts) for specified month (cur, next) for days and zones
 def create_shifts_table():
     conn = db_connect()
     cur = conn.cursor()
@@ -282,7 +289,6 @@ def create_months_table():
     cur.close()
     conn.close()
 create_months_table()
-
 
 # ---------------------------------------------------------
 # DATABASE ACTIONS
@@ -476,9 +482,8 @@ def get_workers_names(user): # [{name: name[str]}]
 
 # Get all shifts from SQL(shifts) for months
 def get_shifts(user, months): 
-
-    # [{name: name[str], filled: [self/auto], zone: [str], day: [int]}, {}] 
-    # -> {prev: {day[int]: {zone[str]: [name, filled]}}, cur:, next:}
+ 
+    # -> {cur: {day[int]: {zone[str]: [name, filled]}}, next:}
     def transform_shifts(change):
         dic = {}
         for line in change:
@@ -488,7 +493,6 @@ def get_shifts(user, months):
     conn = db_connect()
     cur = conn.cursor()
     tables = {
-        'prev': {}, 
         'cur': {}, 
         'next': {}
     }
@@ -496,16 +500,6 @@ def get_shifts(user, months):
         SELECT name, filled, zone, day
         FROM shifts s
             LEFT JOIN workers w ON s.worker_id = w.id
-        WHERE username = ?
-            AND month = ?
-        """, 
-        (user, months['prev'][0]))
-    change = cur.fetchall()
-    tables['prev'] = transform_shifts(change)
-    cur.execute("""
-        SELECT name, filled, zone, day
-        FROM shifts s
-            LEFT JOIN workers w ON s.worker_id = w.id 
         WHERE username = ?
             AND month = ?
         """, 
@@ -526,7 +520,7 @@ def get_shifts(user, months):
     conn.close()
     return tables 
 
-# Delete excessive NOT(prev + cur + next) months from SQL(shifts) 
+# Delete excessive NOT(cur + next) months from SQL(shifts) 
 def delete_excessive_shifts(user, months):
     conn = db_connect()
     cur = conn.cursor()
@@ -535,7 +529,7 @@ def delete_excessive_shifts(user, months):
         WHERE worker_id IN (
             SELECT id FROM workers WHERE username = ?
             ) 
-            AND month NOT IN (?, ?, ?) ''',
+            AND month NOT IN (?, ?) ''',
         (user, *months))
     conn.commit()
     cur.close()
@@ -545,7 +539,7 @@ def delete_excessive_shifts(user, months):
 def add_self_shifts(user, filled_self, month):
     conn = db_connect()
     cur = conn.cursor()
-    for day, zones in filled_self['cur'].items():
+    for day, zones in filled_self['next'].items():
         for zone, name in zones.items():
             cur.execute(''' 
                 SELECT id FROM workers
@@ -565,7 +559,8 @@ def add_self_shifts(user, filled_self, month):
     conn.close()
 
 # Get self filled names from SQL(shifts) for specified zone
-def get_self_shifts(user, month, zone): # [{name: str, day: int}]
+def get_self_shifts(user, month, zone): 
+    # [{name: str, day: int}]
     conn = db_connect()
     cur = conn.cursor()
     cur.execute('''
@@ -579,9 +574,9 @@ def get_self_shifts(user, month, zone): # [{name: str, day: int}]
     conn.close()
     return rows
 
-# Get all exceptions (vacations + added) and shifts from SQL(months + vacations)
+# Get all exceptions (vacations + added) and shifts from SQL(months)
 def get_months_workers_updated(user, months):
-    # -> {prev: {name: {'exceptions': str, 'shifts': int}}, cur: , next: }
+    # -> {cur: {name: {'exceptions': str, 'shifts': int}}, next:...}
     result = {}
     conn = db_connect()
     cur = conn.cursor()
@@ -632,7 +627,9 @@ def add_months_workers(user, month, data):
     conn.close()
 
 # Generate cur shifts
-def get_places_names(user): # {Zone:{name:{shifts: int, role: str}}}
+def get_places_names(user): 
+    # {Zone:{name:{shifts: int, role: str}}}
+
     conn = db_connect()
     cur = conn.cursor()
     cur.execute("""
@@ -661,7 +658,8 @@ def get_places_names(user): # {Zone:{name:{shifts: int, role: str}}}
     return zones
     
 # Get all workers with exceptions and shifts for generation
-def generation_info(user, month): # {name: {exceptions: set(), shifts: int}}
+def generation_info(user, month): 
+    # {name: {exceptions: set(), shifts: int}}
     conn = db_connect()
     cur = conn.cursor()
     info = {}
@@ -751,6 +749,7 @@ def login():
 
     return render_template("login.html") 
 
+# Main page 
 @app.route("/account", methods=["GET"])
 def account():
     if "user" not in session:
@@ -764,26 +763,38 @@ def account():
 
     # Load date for month tabs
     months, years = loaded_date
+
+    # Get workers' vacations for cur+next month
     months_vacations = list_vacation_days(get_month_workers, user, years, months)
+
+    # Get all exceptions (vacations + added) and shifts from SQL(months)
     months_changes = get_months_workers_updated(user, months) 
-    months_updated = {'prev': {}, 'cur': {}, 'next': {}}
-    for name, info in months_changes['cur'].items():
+
+    # Get all recent info for tables
+    months_updated = {'cur': {}, 'next': {}}
+    for name, info in months_changes['next'].items():
         days = info['exceptions']
-        vacations_with_exceptions = sorted(set(days + months_vacations['cur'][name] if name in months_vacations['cur'] else []))
-        shifts = months_changes['cur'][name]['shifts']
-        months_updated.setdefault('cur', {}).setdefault(name, {})['exceptions'] = vacations_with_exceptions
-        months_updated.setdefault('cur', {}).setdefault(name, {}).setdefault('shifts', shifts)
-    # Delete excessive NOT(prev + cur + next) months from SQL(shifts) 
+        vacations_with_exceptions = sorted(set(days + months_vacations['next'][name]
+                                               if name in months_vacations['next']
+                                               else [])
+                                            )
+        shifts = months_changes['next'][name]['shifts']
+        months_updated.setdefault('next', {}).setdefault(name, {})['exceptions'] = vacations_with_exceptions
+        months_updated.setdefault('next', {}).setdefault(name, {}).setdefault('shifts', shifts)
+    
+    # Delete excessive NOT(cur + next) months from SQL(shifts) 
     needed_months = tuple(val[0] for _, val in months.items())
     delete_excessive_shifts(user, needed_months)
 
     # Highlite differents between added info and basic
     highlights = highlite(months_vacations, workers, months_updated, months)
     
-    months_days = {
-        'prev': month_days(years, months, 'prev'), # {days_in_month: int, days: [{day: int, weekend: bool}]]
+    # Get days for cur + next months 
+    months_days = { 
+        # {days_in_month: int, days: [{day: int, weekend: bool}]]
         'cur': month_days(years, months, 'cur'),
-        'next': month_days(years, months, 'next')}
+        'next': month_days(years, months, 'next')
+    }
     shifts_tables = get_shifts(session["user"], months=months)
     
     return render_template(
@@ -798,6 +809,7 @@ def account():
         highlights=highlights,
         shifts_tables = shifts_tables)
 
+# Add new worker to SQL
 @app.route("/account/workers/add", methods=["POST"])
 def account_add():
     if "user" not in session:
@@ -816,10 +828,12 @@ def account_add():
         role,
         vacations, # ["date - date", ...]
         shifts,
-        ", ".join(places))
+        ", ".join(places)
+    )
 
     return {"success": True}
 
+# Update worker's info in SQL
 @app.route('/account/workers/update', methods=['POST'])
 def update_workers():
     if "user" not in session:
@@ -841,6 +855,7 @@ def update_workers():
 
     return {"success": True}
 
+# Delete worker from SQL
 @app.route('/account/workers/delete', methods=['POST'])
 def delete():
     if "user" not in session:
@@ -854,8 +869,8 @@ def delete():
     delete_worker(session["user"], name)
     return {"success": True, "message": "Deleted successfully"}
 
-# Save names filled in cur table to SQL(shifts)
-@app.route("/account/shifts/save_cur", methods=["POST"])
+# Save names filled in next month shifts table to SQL(shifts)
+@app.route("/account/shifts/save_next", methods=["POST"])
 def add_shifts():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401
@@ -864,27 +879,22 @@ def add_shifts():
     # User submitted names, update SQL (shifts) with new values
     for zone_day, name in request.form.items():
         zone, day = zone_day.split('_')
-        filled_self['cur'].setdefault(int(day), {})[zone] = name
-    add_self_shifts(session['user'], filled_self, month=months['cur'][0])
+        filled_self['next'].setdefault(int(day), {})[zone] = name
+    add_self_shifts(session['user'], filled_self, month=months['next'][0])
     return {"success": True}
 
-# Save names with exceptions and shifts from cur month to SQL (months) 
-@app.route("/account/months/save_cur", methods=["POST"])
+# Save names with exceptions and shifts from next month workers table to SQL (months) 
+@app.route("/account/months/save_next", methods=["POST"])
 def save_cur_month_workers():
     if "user" not in session:
         return {"success": False, "error": "Not logged in"}, 401
     data = request.get_json()
     months, _ = loaded_date
-    # month_vacations = list_vacation_days(get_month_workers, session['user'], years, months)['cur']
 
-    # name = data['name']
-    # exceptions = data['exceptions']
-    # shifts = data['shifts']
-
-    add_months_workers(session["user"], months['cur'][0], data)
+    add_months_workers(session["user"], months['next'][0], data)
     return data
     
-# Clear all names in cur month 
+# Clear all names in next month shifts table 
 @app.route("/account/shifts/clear_all_shifts", methods=["POST"])
 def clear_all_shifts():
     if "user" not in session:
@@ -894,7 +904,7 @@ def clear_all_shifts():
     clear_all(session['user'], month=months[month][0])
     return 'Shifts deleted'
 
-# Generate shifts table in cur month 
+# Generate shifts table in next month 
 @app.route("/account/shifts/generate", methods=["POST"])
 def generate_shifts():
     if "user" not in session:
@@ -1040,7 +1050,7 @@ def save_excel():
     graphic = graphic[['OTVET', 'DIAGNOS', 'EXTR', 'PLAN', 'YELLOW', 'GREEN', 'TORAC']]
     
     # Save to SQL(shifts)
-    add_auto_shifts(session['user'], graphic_dict, month=months['cur'][0])
+    add_auto_shifts(session['user'], graphic_dict, month=months['next'][0])
     output = io.BytesIO()
     graphic.to_excel(output, index=True)
     output.seek(0)
@@ -1061,11 +1071,6 @@ def api_names():
     names = [obj['name'] for obj in get_workers_names(session["user"])]
     return {"names": names}
 
-# Completely resets page
-@app.route('/reset', methods=['POST'])
-def reset():
-    session.clear()  # Clear all session data
-    return redirect(url_for('index'))  #
 
 # ---------------------------------------------------------
 # RUN

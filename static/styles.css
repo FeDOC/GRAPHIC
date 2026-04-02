@@ -180,7 +180,6 @@ button[type="submit"],
         /* WORKERS TAB */
         /* ----------- */
 
-
 table {
     width: 100%;
     border-collapse: separate;
@@ -239,7 +238,6 @@ textarea:focus {
     border-color: #6366f1;
     background: white;
 }
-
 
 #workers-table td:first-child {
     text-align: center;
@@ -332,7 +330,7 @@ input[type="checkbox"] {
 .months-tabs {
     display: flex;
     gap: 12px;
-    margin-bottom: 24px;
+    margin-bottom: 12px;
     flex-wrap: wrap;
 }
 
@@ -364,7 +362,7 @@ input[type="checkbox"] {
     display: none;
     gap: 28px;
     background: white;
-    padding: 28px;
+    padding: 16px;
     border-radius: 24px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
 }
@@ -473,6 +471,31 @@ input[type="checkbox"] {
             /* SHIFTS TABLE */
             /* ------------ */
 
+.month-shift-table-wrapper.current {
+    width: 100%;
+}
+
+.month-shift-table.current {
+    table-layout: fixed;
+    width: 70%;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.month-shift-table.current td {
+    padding: 1px;
+}
+
+.month-shift-table.current th:first-child,
+.month-shift-table.current td:first-child {
+    width: 3%;
+}
+
+.month-shift-table.current td:not(:first-child),
+.month-shift-table.current th:not(:first-child) {
+    width: calc(97% / 7);
+}
+
 .month-shift-table-wrapper-and-buttons {
     flex: 1 0 800px;
     min-width: 800px;
@@ -500,23 +523,23 @@ input[type="checkbox"] {
     transform: translateY(-2px);
 }
 
-#cur-save-form button,
-#cur-generate-form button {
+#next-save-form button,
+#next-generate-form button {
     background: linear-gradient(135deg, #10b981, #34d399);
     color: white;
 }
 
-#cur-clear-generated-form button {
+#next-clear-generated-form button {
     background: linear-gradient(135deg, #f59e0b, #fbbf24);
     color: white;
 }
 
-#cur-clear-all-form button {
+#next-clear-all-form button {
     background: linear-gradient(135deg, #ef4444, #f87171);
     color: white;
 }
 
-#cur-save-excel button {
+#next-save-excel button {
     background: linear-gradient(135deg, #6366f1, #818cf8);
     color: white;
 }
@@ -543,12 +566,15 @@ input[type="checkbox"] {
 }
 
 .month-shifts-table td {
-    padding: 12px 8px;
+    padding: 4px 2px;
     text-align: center;
     border-bottom: 1px solid #f1f5f9;
-    min-width: 70px;
     font-size: 15px;
     font-weight: 500;
+}
+
+.month-shifts-table td:first-child {
+    width: 3%;
 }
 
 .month-shifts-table tr:hover td {
@@ -575,16 +601,16 @@ input[type="checkbox"] {
     opacity: 0.7;
 }
 
-.cur-editable {
+.next-editable {
     cursor: pointer;
     transition: background 0.2s;
 }
 
-.cur-editable:hover {
+.next-editable:hover {
     background: #e1f3ff !important;
 }
 
-.weekend .cur-editable:hover {
+.weekend .next-editable:hover {
     background: #e4a0a0 !important;
 }
 
