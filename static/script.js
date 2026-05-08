@@ -430,7 +430,6 @@ if (page === 'account-page') {
 
         // Exceptions Dates cell 
         const excInput = document.createElement('textarea');
-        excInput.rows = excInput.value.split('\n').length;
         excInput.value = cells[2].textContent;
         cells[2].dataset.oldValue = cells[2].textContent; // save old text to compare in apply 
         cells[2].textContent = '';
@@ -454,6 +453,7 @@ if (page === 'account-page') {
         const oldExceptions = cells[2].dataset.oldValue
             ? cells[2].dataset.oldValue.split(',').map(x => x.trim()) // if exist
             : []; // if not exist
+        console.log(cells[3].dataset.oldValue)
         const oldShifts = cells[3].dataset.oldValue 
             ? cells[3].dataset.oldValue
             : '';
@@ -718,27 +718,6 @@ if (page === 'account-page') {
             .then(data => {fillTable(data)})
         });
 
-        // Generate shift table for cur or next month 
-        // document.querySelectorAll('form.generate-form').forEach(form => {
-        //     form.addEventListener('submit', e => {
-        //         e.preventDefault();
-        //         const formId = form.id;
-        //         let month;
-        //         if (formId === "cur-generate-form") {
-        //             month = 'cur'
-        //         } else if (formId === "next-generate-form") {
-        //             month = 'next'
-        //         }
-        //         fetch('/account/shifts/generate', {
-        //             method: 'POST', 
-        //             headers: { 'Content-Type': 'application/json' },
-        //             body: JSON.stringify({'month': month}) 
-        //         })
-        //         .then(res => res.json())
-        //         .then(data => {fillTable(data)})
-        //     });
-        // });
-
         // Clear generated names from next month shifts table
         document.getElementById('next-clear-generated-form')
             .addEventListener('submit', e => {
@@ -746,13 +725,6 @@ if (page === 'account-page') {
                 clearGenerated()
             });
 
-        // Clear generated names from shifts table
-        // document.querySelectorAll('form.clear-generated-form').forEach(form => {
-        //     form.addEventListener('submit', e => {
-        //         e.preventDefault();
-        //         clearGenerated()
-        //     });
-        // });
 
         // Clear all names from next month shifts table
         document.getElementById('next-clear-all-form')
@@ -761,30 +733,10 @@ if (page === 'account-page') {
                 fetch('/account/shifts/clear_all_shifts', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({'month': month})  
+                    body: JSON.stringify({'month': 'next'})  
                 })
                 .then(clearAll())
             });
-
-        // Clear all names from shifts table
-        // document.querySelectorAll('form.clear-all-form').forEach(form => {
-        //     form.addEventListener('submit', e => {
-        //         e.preventDefault();
-        //         const formId = form.id;
-        //         let month;
-        //         if (formId === "cur-clear-all-form") {
-        //             month = 'cur'
-        //         } else if (formId === "next-clear-all-form") {
-        //             month = 'next'
-        //         }
-        //         fetch('/account/shifts/clear_all_shifts', {
-        //             method: 'POST',
-        //             headers: { 'Content-Type': 'application/json' },
-        //             body: JSON.stringify({'month': month})  
-        //         })
-        //         .then(clearAll())
-        //     });
-        // });
 
         // Save table to Excel file
         document.getElementById('next-save-excel')

@@ -1,12 +1,15 @@
 from flask import Flask, render_template, request, session, redirect, url_for, flash, jsonify, send_file
-import calendar, sqlite3, heapq, random, pandas as pd, io
+import calendar, psycopg2, heapq, random, pandas as pd, io
 import pandas as pd
 from datetime import datetime, date, timedelta
 from config import Config
-from collections import defaultdict
+from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
+import os
 
 app = Flask(__name__)
 app.config.from_object(Config)
+load_dotenv()
 
 # ---------------------------------------------------------
 # HELPER FUNCTIONS
@@ -52,8 +55,8 @@ def transform_vacations(rows):
         }
         vacs = []
         for interv in row['vacations']:
-            start_str = datetime.strptime(interv["vacation_start"], "%Y-%m-%d").date().strftime("%d.%m.%y")
-            end_str = datetime.strptime(interv["vacation_end"], "%Y-%m-%d").date().strftime("%d.%m.%y")
+            start_str = interv[0].strftime("%d.%m.%y")
+            end_str = interv[1].strftime("%d.%m.%y")
             vacs.append(f"{start_str} - {end_str}")
         workers[name]['vacations'] = ", ".join(vacs)
     return workers
@@ -93,8 +96,8 @@ def list_vacation_days(get_month_workers, user, years, months):
         month_start, month_end = month_bounds(years[i], months[i][0])
         months_vacations[i] = {}
         for line in raw:
-            vac_start = date.fromisoformat(line['vacation_start'])
-            vac_end = date.fromisoformat(line['vacation_end'])
+            vac_start = line['vacation_start']
+            vac_end = line['vacation_end']
             months_vacations[i].setdefault(line['name'], []).extend(vacation_intervals_in_month(vac_start, vac_end,
                                                             month_start, month_end))
     return months_vacations
@@ -137,9 +140,9 @@ def parse_vacations(vacations): # ["date - date", ...] -> [(datetime.date, datet
 def _(e):
     return jsonify(ok=False, error=str(e)), 400
 
-@app.errorhandler(sqlite3.IntegrityError)
+@app.errorhandler(psycopg2.errors.UniqueViolation)
 def _(e):
-    return jsonify(ok=False, error=str(e)), 409
+    return jsonify(ok=False, error="Duplicate entry"), 409
 
 # ---------------------------------------------------------
 # SQLite DATABASE
@@ -147,26 +150,31 @@ def _(e):
 
 # Connect to DB
 def db_connect():
-    conn = sqlite3.connect("database.db", check_same_thread=False)
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.row_factory = sqlite3.Row  # Dict-like rows
+    conn = psycopg2.connect(
+        host=os.getenv("DB_HOST"),
+        database=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        port=os.getenv("DB_PORT", 5432)
+    )
     return conn
 
 # Create SQL table (users) for users to login
 def create_users_table():
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL
         )""")
 
     # Add default user
     cur.execute("""
-        INSERT OR IGNORE INTO users (username, password)
-        VALUES (?, ?)
+        INSERT INTO users (username, password)
+        VALUES (%s, %s)
+        ON CONFLICT DO NOTHING
     """, ("test", "1"))
 
     conn.commit()
@@ -180,7 +188,7 @@ def create_workers_table():
     cur = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS workers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT NOT NULL,
             name TEXT NOT NULL,
             role TEXT NOT NULL,
@@ -203,7 +211,7 @@ def create_vacations_table():
     cur = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS vacations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             worker_id INTEGER NOT NULL,
             vacation_start DATE NOT NULL,
             vacation_end DATE NOT NULL,
@@ -221,15 +229,15 @@ create_vacations_table()
 # Create SQL table (places) for workers' places
 def create_places_table():
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS places (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             worker_id INTEGER NOT NULL,
             place TEXT NOT NULL,
             FOREIGN KEY (worker_id)
                 REFERENCES workers(id)
-                ON DELETE CASCADE
+                ON DELETE CASCADE,
             UNIQUE (worker_id, place)
         )
     """)
@@ -242,10 +250,10 @@ create_places_table()
 # Create SQL table (shifts) for specified month (cur, next) for days and zones
 def create_shifts_table():
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS shifts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             worker_id INTEGER NOT NULL,
             month INTEGER NOT NULL,
             filled TEXT NOT NULL,
@@ -253,7 +261,7 @@ def create_shifts_table():
             day INTEGER NOT NULL,
             FOREIGN KEY (worker_id)
                 REFERENCES workers(id)
-                ON DELETE CASCADE
+                ON DELETE CASCADE,
             UNIQUE (worker_id, month, filled, zone, day)
         )
     """)
@@ -270,18 +278,18 @@ create_shifts_table()
 # Create SQL table (months) for cur and next months with exceptions and shifts
 def create_months_table():
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS months (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             worker_id INTEGER NOT NULL,
             month INTEGER NOT NULL,
             exceptions TEXT NOT NULL,
             shifts INTEGER NOT NULL,
             FOREIGN KEY (worker_id)
                 REFERENCES workers(id)
-                ON DELETE CASCADE
-            UNIQUE (worker_id)
+                ON DELETE CASCADE,
+            UNIQUE (worker_id, month)
         )
     """)
     #cur.execute('''DROP TABLE IF EXISTS months''')
@@ -300,7 +308,7 @@ def get_password(user):
     cur = conn.cursor()
     cur.execute('''SELECT password 
                     FROM users 
-                    WHERE username = ?''', 
+                    WHERE username = %s''', 
                 (user,)
     )
     row = cur.fetchone()
@@ -315,29 +323,30 @@ def add_worker(user, name, role, vacations, shifts, places):
 
     # Add to SQL(workers)
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cur.execute("""
             INSERT INTO workers (username, name, role, shifts)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id
         """, (user, name, role, shifts))
-        worker_id = cur.lastrowid
+        worker_id = cur.fetchone()['id']
         cur.executemany(
-            "INSERT OR IGNORE INTO places (worker_id, place) VALUES (?, ?)",
+            "INSERT INTO places (worker_id, place) VALUES (%s, %s) ON CONFLICT DO NOTHING",
             [(worker_id, place) for place in places.split(', ')]
         )
 
         if vacations:
             cur.executemany("""
                 INSERT INTO vacations (worker_id, vacation_start, vacation_end)
-                VALUES (?, ?, ?)
+                VALUES (%s, %s, %s)
                 """, 
                 [(worker_id, v_start, v_end) for v_start, v_end in vacations]) 
         conn.commit()
 
     except ValueError:
         raise ValueError("Invalid date format")
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
         conn.rollback()
         raise 
     finally:
@@ -351,24 +360,23 @@ def get_workers(user): # [{col_name: param}]
     cur.execute("""
         SELECT id, name, role, shifts
         FROM workers
-        WHERE username = ?
+        WHERE username = %s
     """, (user,))
     workers = cur.fetchall()
     rows = []  
     for worker in workers:
         worker_id, name, role, shifts = worker
-
         cur.execute("""
             SELECT place
             FROM places
-            WHERE worker_id = ?
+            WHERE worker_id = %s
             """, (worker_id,))
         places = [row[0] for row in cur.fetchall()]
 
         cur.execute("""
             SELECT vacation_start, vacation_end
             FROM vacations
-            WHERE worker_id = ?
+            WHERE worker_id = %s
             ORDER BY vacation_start
         """, (worker_id,))
         vacations = cur.fetchall()
@@ -393,14 +401,14 @@ def get_month_workers(user, year_month):
     end_date = datetime(year, month, calendar.monthrange(year, month)[1]).date()
     # Query from SQL 
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("""
         SELECT name, vacation_start, vacation_end, shifts
         FROM workers w
             LEFT JOIN vacations ON w.id = worker_id
-        WHERE w.username = ?
-            AND (vacation_start BETWEEN ? AND ? 
-                OR vacation_end BETWEEN ? AND ?)
+        WHERE w.username = %s
+            AND (vacation_start BETWEEN %s AND %s 
+                OR vacation_end BETWEEN %s AND %s)
         ORDER BY name""", 
         (user, start_date, end_date, start_date, end_date))
     rows = cur.fetchall()
@@ -411,10 +419,10 @@ def get_month_workers(user, year_month):
 # Delete worker by name in SQL workers table for current user 
 def delete_worker(username, name):
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute('''
         DELETE FROM workers 
-        WHERE username = ? AND name = ?''', 
+        WHERE username = %s AND name = %s''', 
         (username, name))
     conn.commit()
     cur.close()
@@ -429,13 +437,13 @@ def update_worker(username, name, role, vacations, shifts, places):
     try:
         cur.execute("""
             UPDATE workers 
-                SET role = ?, shifts = ?
-            WHERE username = ? AND name = ?
+                SET role = %s, shifts = %s
+            WHERE username = %s AND name = %s
         """, (role, shifts, username, name))
         
         cur.execute("""
             SELECT id FROM workers
-            WHERE username = ? AND name = ?
+            WHERE username = %s AND name = %s
         """, (username, name))
         
         row = cur.fetchone()
@@ -443,19 +451,20 @@ def update_worker(username, name, role, vacations, shifts, places):
 
         cur.execute("""
             DELETE FROM places
-            WHERE worker_id = ?
+            WHERE worker_id = %s
         """, (worker_id,) )
 
         cur.executemany(""" 
-            INSERT or IGNORE INTO places(worker_id, place)
-            VALUES (?, ?)
+            INSERT INTO places(worker_id, place)           
+            VALUES (%s, %s)
+            ON CONFLICT DO NOTHING 
         """, [(worker_id, place) for place in places])
 
         if vacations:
             cur.executemany("""
                 UPDATE vacations
-                    SET vacation_start = ?, vacation_end = ?
-                WHERE worker_id = ?
+                    SET vacation_start = %s, vacation_end = %s
+                WHERE worker_id = %s
                 """, 
                 [(v_start, v_end, worker_id) for v_start, v_end in vacations])
         conn.commit()
@@ -468,11 +477,11 @@ def update_worker(username, name, role, vacations, shifts, places):
 # Get all workers names from SQL(workers)
 def get_workers_names(user): # [{name: name[str]}]
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("""
         SELECT name
         FROM workers
-        WHERE username = ?
+        WHERE username = %s
         ORDER BY name""", 
         (user,))
     rows = cur.fetchall()
@@ -491,7 +500,7 @@ def get_shifts(user, months):
         return dic
 
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     tables = {
         'cur': {}, 
         'next': {}
@@ -500,8 +509,8 @@ def get_shifts(user, months):
         SELECT name, filled, zone, day
         FROM shifts s
             LEFT JOIN workers w ON s.worker_id = w.id
-        WHERE username = ?
-            AND month = ?
+        WHERE username = %s
+            AND month = %s
         """, 
         (user, months['cur'][0]))
     change = cur.fetchall()
@@ -510,8 +519,8 @@ def get_shifts(user, months):
         SELECT name, filled, zone, day
         FROM shifts s
             LEFT JOIN workers w ON s.worker_id = w.id
-        WHERE username = ?
-            AND month = ?
+        WHERE username = %s
+            AND month = %s
         """, 
         (user, months['next'][0]))
     change = cur.fetchall()
@@ -523,13 +532,13 @@ def get_shifts(user, months):
 # Delete excessive NOT(cur + next) months from SQL(shifts) 
 def delete_excessive_shifts(user, months):
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute('''
         DELETE FROM shifts
         WHERE worker_id IN (
-            SELECT id FROM workers WHERE username = ?
+            SELECT id FROM workers WHERE username = %s
             ) 
-            AND month NOT IN (?, ?) ''',
+            AND month NOT IN (%s, %s) ''',
         (user, *months))
     conn.commit()
     cur.close()
@@ -538,18 +547,18 @@ def delete_excessive_shifts(user, months):
 # Add self filled names to SQL(shifts)
 def add_self_shifts(user, filled_self, month):
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     for day, zones in filled_self['next'].items():
         for zone, name in zones.items():
             cur.execute(''' 
                 SELECT id FROM workers
-                WHERE username = ? AND name = ?
+                WHERE username = %s AND name = %s
             ''', (user, name))
             row = cur.fetchone()
             worker_id = row[0]
             cur.execute("""
                 INSERT INTO shifts (worker_id, month, filled, zone, day)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (worker_id, month, zone, day)
                 DO UPDATE SET
                     worker_id = excluded.worker_id
@@ -562,12 +571,12 @@ def add_self_shifts(user, filled_self, month):
 def get_self_shifts(user, month, zone): 
     # [{name: str, day: int}]
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute('''
         SELECT name, day
         FROM shifts s
             LEFT JOIN workers w ON w.id = s.worker_id
-        WHERE month = ? AND zone = ? AND filled = 'self' AND username = ?
+        WHERE month = %s AND zone = %s AND filled = 'self' AND username = %s
     ''', (month, zone, user))
     rows = cur.fetchall()
     cur.close()
@@ -579,14 +588,14 @@ def get_months_workers_updated(user, months):
     # -> {cur: {name: {'exceptions': str, 'shifts': int}}, next:...}
     result = {}
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     for month in months:
         result[month] = {}
         cur.execute("""
             SELECT name, exceptions, m.shifts
             FROM months m
             LEFT JOIN workers w ON w.id = m.worker_id
-            WHERE username=? AND month=?
+            WHERE username=%s AND month=%s
             ORDER BY name""", 
             (user, months[month][0]))
         rows = cur.fetchall()
@@ -601,11 +610,11 @@ def get_months_workers_updated(user, months):
 # Delete user previous data and add edited worker's exceptions and shifts to SQL(months)
 def add_months_workers(user, month, data):
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute('''
         DELETE FROM months
         WHERE worker_id IN (
-            SELECT id FROM workers WHERE username = ?)
+            SELECT id FROM workers WHERE username = %s)
     ''', (user,))
     for name in data.keys():
         exceptions = ', '.join([x.strip() 
@@ -615,9 +624,9 @@ def add_months_workers(user, month, data):
         cur.execute('''
             INSERT INTO months(worker_id, month, exceptions, shifts)
             VALUES (
-                (SELECT id FROM workers WHERE name = ?), ?, ?, ?
+                (SELECT id FROM workers WHERE name = %s), %s, %s, %s
             )
-            ON CONFLICT (worker_id)
+            ON CONFLICT (worker_id, month)
             DO UPDATE SET
                 exceptions = EXCLUDED.exceptions,
                 shifts = EXCLUDED.shifts
@@ -631,12 +640,12 @@ def get_places_names(user):
     # {Zone:{name:{shifts: int, role: str}}}
 
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("""
         SELECT DISTINCT place
         FROM places p
             LEFT JOIN workers w ON p.worker_id = w.id 
-        WHERE username = ?
+        WHERE username = %s
         """, (user, ))
     places = [place['place'] for place in cur.fetchall()]
     zones = {}
@@ -645,8 +654,8 @@ def get_places_names(user):
             SELECT name, role, shifts
             FROM places p
                 LEFT JOIN workers w ON p.worker_id = w.id 
-            WHERE username = ?
-                AND place = ?
+            WHERE username = %s
+                AND place = %s
             """, (user, place))
         rows = cur.fetchall()
         zones[place] = {}
@@ -661,22 +670,22 @@ def get_places_names(user):
 def generation_info(user, month): 
     # {name: {exceptions: set(), shifts: int}}
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     info = {}
     cur.execute("""
         SELECT name
         FROM workers
-        WHERE username = ?
+        WHERE username = %s
         ORDER BY name""", 
         (user,))
     names = [r['name'] for r in cur.fetchall()]
-    placeholders = ','.join(['?' for _ in names])
+    placeholders = ','.join(['%s' for _ in names])
     cur.execute(f"""
         SELECT w.name, m.exceptions, m.shifts
         FROM months m
             LEFT JOIN workers w ON w.id = m.worker_id
         WHERE w.name IN ({placeholders})
-            AND m.month = ?
+            AND m.month = %s
         """, (*names, month))
     raw = cur.fetchall()
     for line in raw:
@@ -689,11 +698,11 @@ def generation_info(user, month):
 # Add generated names to SQL(shifts)
 def add_auto_shifts(user, graphic, month):
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute('''
         DELETE FROM shifts
         WHERE worker_id IN (
-            SELECT id FROM workers WHERE username = ?)
+            SELECT id FROM workers WHERE username = %s)
             AND filled = 'auto'
     ''', (user,))
     for day, zones in graphic.items():
@@ -701,14 +710,15 @@ def add_auto_shifts(user, graphic, month):
             if name:
                 cur.execute(''' 
                     SELECT id FROM workers
-                    WHERE username = ? AND name = ?
+                    WHERE username = %s AND name = %s
                 ''', (user, name))
                 
                 row = cur.fetchone()
                 worker_id = row[0]
                 cur.execute("""
-                    INSERT OR IGNORE INTO shifts (worker_id, month, filled, zone, day)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO shifts (worker_id, month, filled, zone, day)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT DO NOTHING
                 """, (worker_id, month, 'auto', zone, day))
     conn.commit()
     cur.close()
@@ -717,13 +727,13 @@ def add_auto_shifts(user, graphic, month):
 # Clear all data (self+auto) from SQL(shifts) for specified month
 def clear_all(user, month):
     conn = db_connect()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute('''
         DELETE FROM shifts
         WHERE worker_id IN (
-            SELECT id FROM workers WHERE username = ?
+            SELECT id FROM workers WHERE username = %s
         )
-        AND month = ?''', 
+        AND month = %s''', 
         (user, month))
     conn.commit()
     cur.close()
@@ -739,7 +749,6 @@ def login():
         username = request.form["username"].strip().lower()
         input_password = request.form["password"].strip()
         real_password = get_password(username)
-        
 
         if real_password and real_password[0] == input_password:
             session["user"] = username
@@ -774,9 +783,11 @@ def account():
     months_updated = {'cur': {}, 'next': {}}
     for name, info in months_changes['next'].items():
         days = info['exceptions']
-        vacations_with_exceptions = sorted(set(days + months_vacations['next'][name]
-                                               if name in months_vacations['next']
-                                               else [])
+        vacations_with_exceptions = sorted(set(days + (months_vacations['next'][name]
+                                                        if name in months_vacations['next']
+                                                        else []
+                                                    )
+                                                )
                                             )
         shifts = months_changes['next'][name]['shifts']
         months_updated.setdefault('next', {}).setdefault(name, {})['exceptions'] = vacations_with_exceptions
@@ -1034,7 +1045,6 @@ def generate_shifts():
         if zone in ('GREEN', 'YELLOW'):
             heap = zone_heap()
             priem_algo(heap)
-    print(worker_unavail)
         
     session['graphic'] = graphic
     return graphic
