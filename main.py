@@ -59,7 +59,7 @@ def transform_vacations(rows):
             end_str = interv[1].strftime("%d.%m.%y")
             vacs.append(f"{start_str} - {end_str}")
         workers[name]['vacations'] = ", ".join(vacs)
-    return workers
+    return dict(sorted(workers.items()))
 
 # Days of vacations for worker for month tab
 def list_vacation_days(get_month_workers, user, years, months): 
@@ -958,8 +958,12 @@ def generate_shifts():
                 rest_day = day + delta
                 if 1 <= rest_day <= days_in_month:
                     worker_unavail[name].add(rest_day)
+    
     # Make graphic for each zone 
-    for zone, names_dict in zones_info.items():
+    for zone in ['OTVET', 'DIAGNOS', 'GREEN', 'EXTR', 'YELLOW', 'PLAN', 'TORAC']:
+        names_dict = zones_info.get(zone)
+        if names_dict is None:
+            continue
         
         # Make heap for zone
         def zone_heap():
