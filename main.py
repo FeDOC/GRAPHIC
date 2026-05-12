@@ -931,7 +931,7 @@ def generate_shifts():
     
     for day in range(1, days_in_month + 1):
         graphic[day] = {}
-        for zone in zones_info.keys():
+        for zone in ['OTVET', 'DIAGNOS', 'GREEN', 'EXTR', 'YELLOW', 'PLAN', 'TORAC']:
             graphic[day][zone] = None
 
     # To add rest days to exceptions 
@@ -1061,7 +1061,6 @@ def save_excel():
         return {"success": False, "error": "Not logged in"}, 401 
     months, _ = loaded_date
     graphic_dict = session['graphic']
-    print(graphic_dict)
     graphic = pd.DataFrame.from_dict(graphic_dict, orient='index')
     graphic = graphic[['OTVET', 'DIAGNOS', 'EXTR', 'PLAN', 'YELLOW', 'GREEN', 'TORAC']]
     
