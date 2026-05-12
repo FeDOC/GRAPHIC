@@ -430,8 +430,8 @@ if (page === 'account-page') {
 
         // Exceptions Dates cell 
         const excInput = document.createElement('textarea');
-        excInput.value = cells[2].textContent;
-        cells[2].dataset.oldValue = cells[2].textContent; // save old text to compare in apply 
+        excInput.value = cells[2].textContent.replace(/\s+/g, '').trim();
+        cells[2].dataset.oldValue = cells[2].textContent.replace(/\s+/g, '').trim(); // save old text to compare in apply 
         cells[2].textContent = '';
         cells[2].appendChild(excInput);
         excInput.dispatchEvent(new Event('input'));
@@ -440,8 +440,8 @@ if (page === 'account-page') {
         const shiftsInput = document.createElement('input');
         shiftsInput.type = 'number';
         shiftsInput.min = 0;
-        shiftsInput.value = parseInt(cells[3].textContent);
-        cells[3].dataset.oldValue = cells[3].textContent;
+        shiftsInput.value = parseInt(cells[3].textContent.replace(/\s+/g, '').trim());
+        cells[3].dataset.oldValue = cells[3].textContent.replace(/\s+/g, '').trim();
         cells[3].textContent = '';
         cells[3].appendChild(shiftsInput);
     }
@@ -453,7 +453,6 @@ if (page === 'account-page') {
         const oldExceptions = cells[2].dataset.oldValue
             ? cells[2].dataset.oldValue.split(',').map(x => x.trim()) // if exist
             : []; // if not exist
-        console.log(cells[3].dataset.oldValue)
         const oldShifts = cells[3].dataset.oldValue 
             ? cells[3].dataset.oldValue
             : '';
@@ -467,6 +466,7 @@ if (page === 'account-page') {
         newExceptions.forEach((exc, i) => {
             const excSpan = document.createElement('span');
             excSpan.textContent = exc;
+            console.log(exc)
             // Compare with old: if it’s new, make red
             if (!oldExceptions.includes(exc)) {
                 excSpan.style.color = 'red';
@@ -481,7 +481,7 @@ if (page === 'account-page') {
         // Shifts
         cells[3].textContent = '';
         const shiftSpan = document.createElement('span');
-        shiftSpan.textContent = newShifts;
+        shiftSpan.textContent = newShifts
         if (oldShifts !== newShifts) {
             shiftSpan.style.color = 'green';
             shiftSpan.style.fontWeight = 600;
@@ -603,7 +603,7 @@ if (page === 'account-page') {
         // Apply editable rows function to next month workers table
         document.querySelectorAll('.month-workers-table.next tbody tr').forEach(MonthEditableCells);
         
-        // Save exceptions and shifts for nextt month
+        // Save exceptions and shifts for next month
         document.getElementById('next-workers-save-form')?.addEventListener('submit', function(e) {
             e.preventDefault();
             fetch('/account/months/save_next', {

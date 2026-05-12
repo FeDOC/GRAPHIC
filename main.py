@@ -76,9 +76,9 @@ def list_vacation_days(get_month_workers, user, years, months):
     # Define vacations days for month  
     def vacation_intervals_in_month(vac_start, vac_end, month_start, month_end): # type(args) = date
         if not vac_start:
-            return None
+            return [None]
         if vac_end < month_start or vac_start > month_end:
-            return None
+            return [None]
         start = max(vac_start, month_start)
         end = min(vac_end, month_end)
         days = [] 
@@ -150,13 +150,14 @@ def _(e):
 
 # Connect to DB
 def db_connect():
-    conn = psycopg2.connect(
-        host=os.getenv("DB_HOST"),
-        database=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        port=os.getenv("DB_PORT", 5432)
-    )
+    # conn = psycopg2.connect(
+    #     host=os.getenv("DB_HOST"),
+    #     database=os.getenv("DB_NAME"),
+    #     user=os.getenv("DB_USER"),
+    #     password=os.getenv("DB_PASSWORD"),
+    #     port=os.getenv("DB_PORT", 5432)
+    # )
+    conn = psycopg2.connect(os.getenv("DATABASE_URL"))
     return conn
 
 # Create SQL table (users) for users to login
@@ -547,7 +548,7 @@ def delete_excessive_shifts(user, months):
 # Add self filled names to SQL(shifts)
 def add_self_shifts(user, filled_self, month):
     conn = db_connect()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur = conn.cursor()
     for day, zones in filled_self['next'].items():
         for zone, name in zones.items():
             cur.execute(''' 
@@ -610,7 +611,7 @@ def get_months_workers_updated(user, months):
 # Delete user previous data and add edited worker's exceptions and shifts to SQL(months)
 def add_months_workers(user, month, data):
     conn = db_connect()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur = conn.cursor()
     cur.execute('''
         DELETE FROM months
         WHERE worker_id IN (
@@ -698,7 +699,7 @@ def generation_info(user, month):
 # Add generated names to SQL(shifts)
 def add_auto_shifts(user, graphic, month):
     conn = db_connect()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur = conn.cursor()
     cur.execute('''
         DELETE FROM shifts
         WHERE worker_id IN (
@@ -1056,6 +1057,7 @@ def save_excel():
         return {"success": False, "error": "Not logged in"}, 401 
     months, _ = loaded_date
     graphic_dict = session['graphic']
+    print(graphic_dict)
     graphic = pd.DataFrame.from_dict(graphic_dict, orient='index')
     graphic = graphic[['OTVET', 'DIAGNOS', 'EXTR', 'PLAN', 'YELLOW', 'GREEN', 'TORAC']]
     

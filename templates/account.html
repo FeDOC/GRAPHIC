@@ -138,9 +138,7 @@
                                 {%- for day in days -%}
                                     {%- if (name in highlights['next'] 
                                     and day in highlights['next'][name]['exceptions']) -%}
-                                        <span style="color: red">
-                                            {{ day }}
-                                        </span>
+                                        <span style="color: red">{{ day }}</span>
                                     {%- else -%}
                                         {{ day }}
                                     {%- endif -%}
@@ -149,14 +147,14 @@
                                 {%- endfor -%}
                                 </td>
                                 <td>
-                                    {%- if (name in highlights['next']
-                                    and highlights['next'][name]['shifts'] is not none) -%}
+                                    {% if (name in highlights['next']
+                                    and highlights['next'][name]['shifts'] is not none) %}
                                         <span style="color:green">
                                             {{ highlights['next'][name]['shifts'] }}
                                         </span>
-                                    {%- else -%}
+                                    {% else %}
                                         {{ values['shifts'] }}
-                                    {%- endif -%}
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}

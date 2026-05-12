@@ -519,6 +519,10 @@ input[type="checkbox"] {
     gap: 20px;
 }
 
+.month-shift-table-wrapper-and-buttons.hidden {
+    display: none;
+}
+
 .month-shift-table-buttons {
     display: flex;
     flex-wrap: wrap;
