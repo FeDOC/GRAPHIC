@@ -968,9 +968,13 @@ def generate_shifts():
         # Make heap for zone
         def zone_heap():
             heap = []
-            for name in random.sample(list(names_dict.keys()), len(names_dict)):
+            def role_priority(name):
+                role = names_dict[name]['role']
+                return 0 if role == "Shifter" else 1  # Shifter first
+            
+            for name in sorted(names_dict.keys(), key=role_priority):
                 shifts_used.setdefault(name, 0)
-                heap.append((shifts_used[name], random.random(), name))
+                heap.append((role_priority(name), shifts_used[name], random.random(), name))
             heapq.heapify(heap)
             return heap
 
@@ -982,13 +986,13 @@ def generate_shifts():
                 skip = []
                 assign = False
                 while heap:
-                    used, _, name = heapq.heappop(heap)
+                    priority, used, _, name = heapq.heappop(heap)
 
                     # Check
                     if used >= workers_info[name]['shifts']:
                         continue
                     if day in worker_unavail[name]:
-                        skip.append((used, random.random(), name))
+                        skip.append((priority, used, random.random(), name))
                         continue
 
                     graphic.setdefault(day, {zone: None})[zone] = name  # Fill in graphic
@@ -998,7 +1002,7 @@ def generate_shifts():
                         rest_day = day + delta
                         if 1 <= rest_day <= days_in_month:
                             worker_unavail[name].add(rest_day)
-                    heapq.heappush(heap, (shifts_used[name], random.random(), name)) # Back to heap
+                    heapq.heappush(heap, (priority, shifts_used[name], random.random(), name)) # Back to heap
                     assign = True
                     break
 
@@ -1016,14 +1020,14 @@ def generate_shifts():
                 skip = []
                 assign = False
                 while heap:
-                    used, _, name = heapq.heappop(heap)
+                    priority, used, _, name = heapq.heappop(heap)
 
                     # Check
                     if used >= workers_info[name]['shifts']:
                         continue
                     if (day in worker_unavail[name]
                         or names_dict[name]['role'] == 'Day' and days[day] is False):
-                        skip.append((used, random.random(), name))
+                        skip.append((priority, used, random.random(), name))
                         continue
 
                     graphic.setdefault(day, {zone: None})[zone] = name  # Fill in graphic
@@ -1033,7 +1037,7 @@ def generate_shifts():
                         rest_day = day + delta
                         if 1 <= rest_day <= days_in_month:
                             worker_unavail[name].add(rest_day)
-                    heapq.heappush(heap, (shifts_used[name], random.random(), name)) # Back to heap
+                    heapq.heappush(heap, (priority, shifts_used[name], random.random(), name)) # Back to heap
                     assign = True
                     break
 

@@ -23,7 +23,6 @@ services:
       - "5000:5000"
     environment:
       DATABASE_URL: postgresql://postgres:1@db:5432/graphic
-      FLASK_ENV: development
     depends_on:
       db:
         condition: service_healthy

@@ -341,7 +341,12 @@ if (page === 'account-page') {
 
         const name = cells[1].querySelector('input').value.trim();
         const role = cells[2].querySelector('input:checked')?.value || '';
-        const vacations = cells[3].querySelector('textarea').value.split(',').map(x => x.trim());
+        const vacations = cells[3]
+                            .querySelector('textarea')
+                            .value
+                            .split(/[,-]/)
+                            .map(x => x.trim())
+                            .filter(Boolean);
         const shifts = parseInt(cells[4].querySelector('input').value) || 0;
         const places = Array.from(cells[5].querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
 
