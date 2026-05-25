@@ -601,7 +601,7 @@ def get_months_workers_updated(user, months):
             (user, months[month][0]))
         rows = cur.fetchall()
         for row in rows:
-            excs = list(map(int, [d.strip() for d in row['exceptions'].split(',') if d.strip()]))
+            excs = list(map(int, [d.strip() for d in row['exceptions'].replace('-', ',').split(',') if d.strip()]))
             result[month][row['name']] = {'exceptions': excs,
                                         'shifts': row['shifts']}
     cur.close()
